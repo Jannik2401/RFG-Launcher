@@ -1,0 +1,42 @@
+name: Build and Release Launcher
+
+on:
+  push:
+    tags:
+      - 'v*' # Startet automatisch, wenn du ein Tag wie 'v1.0.0' erstellst
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Repository auschecken
+      uses: actions/checkout@v4
+
+    - name: Python einrichten
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Abhängigkeiten installieren
+      run: |
+        pip install requests customtkinter pyinstaller
+
+    - name: Launcher als EXE kompilieren
+      run: |
+        pyinstaller --noconsole --onefile --name "RFG-Launcher" main.py
+
+    - name: Game-Ordner als ZIP packen
+      run: |
+        # Falls du einen Ordner 'game' hast, wird dieser gepackt
+        Compress-Archive -Path "game/*" -DestinationPath "game.zip" -Force
+      shell: powershell
+
+    - name: Release auf GitHub erstellen
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          dist/RFG-Launcher.exe
+          game.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
