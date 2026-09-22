@@ -1,0 +1,103 @@
+name: Build and Release RFGlauncher
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'version.json'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: .NET installieren
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Version in .csproj eintragen
+        shell: pwsh
+        run: |
+          $ver = "1.0.${{ github.run_number }}"
+          Write-Host "Setze Projekt-Version auf: $ver"
+          
+          $csprojPath = Join-Path $PWD "BetaLauncher.csproj"
+          [xml]$csproj = Get-Content $csprojPath -Raw -Encoding UTF8
+          
+          $propGroup = $csproj.GetElementsByTagName("PropertyGroup")[0]
+          if ($null -eq $propGroup) {
+              $projectNode = $csproj.GetElementsByTagName("Project")[0]
+              $propGroup = $csproj.CreateElement("PropertyGroup", $projectNode.NamespaceURI)
+              $projectNode.AppendChild($propGroup)
+          }
+
+          foreach ($tagName in @("Version", "AssemblyVersion", "FileVersion")) {
+              $val = if ($tagName -eq "Version") { $ver } else { "$ver.0" }
+              $node = $propGroup.GetElementsByTagName($tagName)[0]
+              if ($null -eq $node) {
+                  $node = $csproj.CreateElement($tagName, $propGroup.NamespaceURI)
+                  $propGroup.AppendChild($node)
+              }
+              $node.InnerText = $val
+          }
+
+          $settings = New-Object System.Xml.XmlWriterSettings
+          $settings.OmitXmlDeclaration = $true
+          $settings.Indent = $true
+          $writer = [System.Xml.XmlWriter]::Create($csprojPath, $settings)
+          $csproj.Save($writer)
+          $writer.Dispose()
+
+      - name: Launcher bauen
+        shell: pwsh
+        run: |
+          dotnet publish BetaLauncher.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:EnableCompressionInSingleFile=false -o ./publish
+          
+          if (Test-Path "./publish/BetaLauncher.exe") {
+              Move-Item "./publish/BetaLauncher.exe" "./publish/RFGlauncher.exe" -Force
+          }
+
+      - name: Release aktualisieren oder neu erstellen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tagName = "latest"
+          $releaseName = "RFGlauncher (Version 1.0.${{ github.run_number }})"
+          $notes = "Automatisches Update für den Launcher (Version 1.0.${{ github.run_number }})."
+          $exePath = "./publish/RFGlauncher.exe"
+
+          gh release delete "$tagName" --repo "${{ github.repository }}" --yes --cleanup-tag 2>&1 | Out-Null
+          git push origin --delete "$tagName" 2>&1 | Out-Null
+
+          gh release create "$tagName" "$exePath" --repo "${{ github.repository }}" --title "$releaseName" --notes "$notes"
+
+      - name: version.json automatisch aktualisieren & pushen
+        shell: pwsh
+        run: |
+          $ver = "1.0.${{ github.run_number }}"
+          $json = @{
+              version = "$ver"
+              downloadUrl = "https://github.com/${{ github.repository }}/releases/download/latest/RFGlauncher.exe"
+          } | ConvertTo-Json -Depth 10
+          Set-Content -Path version.json -Value $json -Encoding utf8
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch origin main
+          git checkout main
+          git add version.json
+          git commit -m "Auto-update version.json to $ver [skip ci]" || exit 0
+          git push origin main
