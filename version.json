@@ -1,9 +1,4 @@
 {
-  "launcher_version": "1.0.0",
-  "game_version": "1.0.0",
-  "beta_game_version": "1.1.0-beta",
-  "launcher_url": "https://github.com/Jannik2401/RFG-Launcher/releases/latest/download/RFG-Launcher.exe",
-  "game_url": "https://github.com/Jannik2401/RFG-Launcher/releases/latest/download/game.zip",
-  "beta_url": "https://github.com/Jannik2401/RFG-Launcher/releases/latest/download/game_beta.zip",
-  "news": "Willkommen zur Kirmes-Breakdance-Simulation!\n- Update 1.0 online\n- Neue Fahrgeschäft-Animationen hinzugefügt!"
+  "version": "1.0.27",
+  "downloadUrl": "https://github.com/Jannik2401/RFGLauncher/releases/download/latest/RFGlauncher.exe"
 }

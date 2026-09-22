@@ -1,0 +1,90 @@
+name: Discord - Neue Kirmes Version
+
+on:
+  release:
+    types: [published, edited]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prüfe ob game.zip vorhanden ist
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ASSETS=$(gh api \
+            repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets \
+            --jq '.[].name')
+
+          echo "Assets:"
+          echo "$ASSETS"
+
+          if echo "$ASSETS" | grep -Fxq "game.zip"; then
+            echo "has_game_zip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_game_zip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Discord Nachricht senden
+        if: steps.check.outputs.has_game_zip == 'true'
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          VERSION: ${{ github.event.release.tag_name }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_NOTES: ${{ github.event.release.body }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          webhook = os.environ["WEBHOOK_URL"]
+
+          version = os.environ["VERSION"]
+          name = os.environ["RELEASE_NAME"]
+          notes = os.environ["RELEASE_NOTES"]
+          url = os.environ["RELEASE_URL"]
+
+          if not notes:
+              notes = "Keine Release Notes angegeben."
+
+          message = {
+              "content": "🎡 **Neue Kirmes-Beta verfügbar!**",
+              "embeds": [
+                  {
+                      "title": f"🚀 {name or version}",
+                      "description": notes,
+                      "url": url,
+                      "fields": [
+                          {
+                              "name": "Version",
+                              "value": version,
+                              "inline": True
+                          },
+                          {
+                              "name": "Download",
+                              "value": "[Kirmes Beta herunterladen](" + url + ")",
+                              "inline": True
+                          }
+                      ]
+                  }
+              ]
+          }
+
+          data = json.dumps(message).encode("utf-8")
+
+          request = urllib.request.Request(
+              webhook,
+              data=data,
+              headers={
+                  "Content-Type": "application/json"
+              },
+              method="POST"
+          )
+
+          with urllib.request.urlopen(request) as response:
+              print("Discord Status:", response.status)
+          PY
