@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace BetaLauncher
 {
@@ -15,10 +16,17 @@ namespace BetaLauncher
         private const string GitHubRepo = "RFG-Launcher";
         private readonly HttpClient Http = new();
 
+        // Beispiel-Pfade (anpassen falls nötig)
+        private string VersionFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "version.txt");
+
         public MainWindow()
         {
             InitializeComponent();
         }
+
+        // =========================================================================
+        // NEUE UPDATELOGIK (GitHub API - Dynamisch für V3, V4, etc.)
+        // =========================================================================
 
         private async Task DownloadAndInstallLatestAsync()
         {
@@ -26,7 +34,6 @@ namespace BetaLauncher
             {
                 UpdateButton.IsEnabled = false;
                 
-                // 1. Hole automatisch das neueste Release von GitHub, das eine game.zip enthält
                 StatusText.Text = "Suche nach neuesten Updates...";
                 var release = await GetLatestGameReleaseAsync();
                 if (release == null)
@@ -35,7 +42,6 @@ namespace BetaLauncher
                     return;
                 }
 
-                // 2. Suche nach der game.zip im Release
                 var asset = release.Assets.FirstOrDefault(a => string.Equals(a.Name, "game.zip", StringComparison.OrdinalIgnoreCase));
                 if (asset == null)
                 {
@@ -46,7 +52,6 @@ namespace BetaLauncher
                 string tempZip = Path.Combine(Path.GetTempPath(), "RFG_game_update.zip");
                 if (File.Exists(tempZip)) File.Delete(tempZip);
 
-                // 3. Herunterladen der game.zip
                 StatusText.Text = $"Lade {release.TagName} herunter...";
                 await using (var responseStream = await Http.GetStreamAsync(asset.BrowserDownloadUrl))
                 using (var fileStream = new FileStream(tempZip, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -54,16 +59,14 @@ namespace BetaLauncher
                     await responseStream.CopyToAsync(fileStream);
                 }
 
-                // 4. Installieren / Entpacken der ZIP
                 StatusText.Text = "Installiere Spieldateien...";
-                // InstallZip(tempZip); // Ersetze dies durch deine Entpackungs-Methode, falls sie anders heißt
+                // InstallZip(tempZip); // Hier deine Entpackungs-Logik einfügen
                 
                 if (File.Exists(tempZip)) File.Delete(tempZip);
 
-                // 5. Version lokal speichern (Pfad 'VersionFile' muss in deinem Projekt existieren)
-                // File.WriteAllText(VersionFile, NormalizeVersion(release.TagName));
+                File.WriteAllText(VersionFile, NormalizeVersion(release.TagName));
                 StatusText.Text = "Erfolgreich installiert!";
-                // UpdateHomeInformation();
+                UpdateHomeInformation();
             }
             catch (Exception ex)
             {
@@ -76,12 +79,10 @@ namespace BetaLauncher
             }
         }
 
-        // Hilfsmethode: Fragt die GitHub-API ab und filtert nach Releases mit game.zip
         private async Task<GitHubRelease?> GetLatestGameReleaseAsync()
         {
             string url = $"https://api.github.com/repos/{GitHubOwner}/{GitHubRepo}/releases?per_page=10";
             
-            // User-Agent ist bei GitHub API-Requests Pflicht
             if (!Http.DefaultRequestHeaders.Contains("User-Agent"))
             {
                 Http.DefaultRequestHeaders.Add("User-Agent", "RFG-Launcher");
@@ -93,14 +94,12 @@ namespace BetaLauncher
             string json = await response.Content.ReadAsStringAsync();
             var releases = JsonSerializer.Deserialize<GitHubRelease[]>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             
-            // Filtert Drafts heraus und prüft, ob die game.zip als Asset vorhanden ist
             return releases?
                 .Where(r => !r.Draft && r.Assets != null && r.Assets.Any(a => string.Equals(a.Name, "game.zip", StringComparison.OrdinalIgnoreCase)))
                 .OrderByDescending(r => ParseVersion(r.TagName))
                 .FirstOrDefault();
         }
 
-        // Hilfsmethode zum Parsen von Versionsnummern (z.B. "V3" zu "3.0.0")
         private Version ParseVersion(string tag)
         {
             string clean = new string(tag.Where(c => char.IsDigit(c) || c == '.').ToArray());
@@ -112,9 +111,65 @@ namespace BetaLauncher
         {
             return tag.TrimStart('v', 'V');
         }
+
+        private void UpdateHomeInformation()
+        {
+            // Platzhalter für UI-Aktualisierung
+        }
+
+
+        // =========================================================================
+        // UI EVENT HANDLER (Stubs zur Behebung der CS1061-Fehler)
+        // =========================================================================
+
+        private void HomeButton_Click(object sender, RoutedEventArgs e) { }
+        private void UpdatesButton_Click(object sender, RoutedEventArgs e) { }
+        private void AccountButton_Click(object sender, RoutedEventArgs e) { }
+        private void AdminButton_Click(object sender, RoutedEventArgs e) { }
+        private void PerformanceButton_Click(object sender, RoutedEventArgs e) { }
+        private void CreditsButton_Click(object sender, RoutedEventArgs e) { }
+        private void SettingsButton_Click(object sender, RoutedEventArgs e) { }
+        private void CheckLauncherUpdateButton_Click(object sender, RoutedEventArgs e) { }
+        private void ExitButton_Click(object sender, RoutedEventArgs e) { Application.Current.Shutdown(); }
+        private void UserProfileCornerBox_Click(object sender, RoutedEventArgs e) { }
+
+        private void StartButton_Click(object sender, RoutedEventArgs e) { }
+        private void UpdateButton_Click(object sender, RoutedEventArgs e) 
+        {
+            _ = DownloadAndInstallLatestAsync();
+        }
+
+        private void AccountPasswordBox_PasswordChanged(object sender, RoutedEventArgs e) { }
+        private void AccountPasswordVisibleTextBox_TextChanged(object sender, TextChangedEventArgs e) { }
+        private void TogglePasswordVisibility_Click(object sender, RoutedEventArgs e) { }
+        private void LoginAccountButton_Click(object sender, RoutedEventArgs e) { }
+        private void SaveDisplayNameButton_Click(object sender, RoutedEventArgs e) { }
+        private void GoToChangePassword_Click(object sender, RoutedEventArgs e) { }
+        private void LogoutButton_Click(object sender, RoutedEventArgs e) { }
+        private void SaveNewPasswordButton_Click(object sender, RoutedEventArgs e) { }
+
+        private void AdminCreateUser_Click(object sender, RoutedEventArgs e) { }
+        private void AdminToggleBeta_Click(object sender, RoutedEventArgs e) { }
+        private void AdminResetPw_Click(object sender, RoutedEventArgs e) { }
+        private void AdminToggleLock_Click(object sender, RoutedEventArgs e) { }
+        private void AdminDeleteUser_Click(object sender, RoutedEventArgs e) { }
+
+        private void DiscordButton_Click(object sender, RoutedEventArgs e) { }
+        private void TwitchButton_Click(object sender, RoutedEventArgs e) { }
+        private void InstagramButton_Click(object sender, RoutedEventArgs e) { }
+        private void TikTokButton_Click(object sender, RoutedEventArgs e) { }
+
+        private void InlinePwdBox_PasswordChanged(object sender, RoutedEventArgs e) { }
+        private void InlineTxtVisiblePassword_TextChanged(object sender, TextChangedEventArgs e) { }
+        private void InlineBtnTogglePwd_Click(object sender, RoutedEventArgs e) { }
+        private void InlineCancelButton_Click(object sender, RoutedEventArgs e) { }
+        private void InlineSaveButton_Click(object sender, RoutedEventArgs e) { }
     }
 
-    // Datenmodelle für die JSON-Antwort von GitHub (stehen außerhalb der MainWindow-Klasse im Namespace)
+    // =========================================================================
+    // DATENMODELLE FÜR GITHUB API
+    // =========================================================================
+
     public class GitHubRelease
     {
         [JsonPropertyName("tag_name")]
