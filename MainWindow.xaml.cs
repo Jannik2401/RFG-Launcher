@@ -156,6 +156,7 @@ public partial class MainWindow : Window
         HasBetaAccess = false;
 
         AdminMenuButton.Visibility = Visibility.Collapsed;
+        StatusCheckTimer?.Stop();
 
         UpdateHomeInformation();
         UpdateAccountUIVisibility();
@@ -402,6 +403,54 @@ public partial class MainWindow : Window
         StartButton.IsEnabled = IsGameInstalled() && HasBetaAccess;
     }
 
+    // --- LIVE STATUS CHECK TIMER (Prüft alle 3 Sekunden im Hintergrund) ---
+    private void StartStatusCheck()
+    {
+        StatusCheckTimer?.Stop();
+        StatusCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        StatusCheckTimer.Tick += async (s, e) =>
+        {
+            if (string.IsNullOrEmpty(LoggedInUsername)) return;
+
+            try
+            {
+                using HttpClient client = new();
+                var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/user-status", new { username = LoggedInUsername });
+                var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
+
+                if (result != null && result.Success)
+                {
+                    bool statusChanged = HasBetaAccess != result.HasBetaAccess || LoggedInRole != result.Role || result.IsLocked;
+                    
+                    HasBetaAccess = result.HasBetaAccess;
+                    LoggedInRole = result.Role ?? "user";
+
+                    if (result.IsLocked)
+                    {
+                        MessageBox.Show("Dein Account wurde gesperrt.", "Sicherheit", MessageBoxButton.OK, MessageBoxImage.Error);
+                        if (File.Exists(SessionFile)) File.Delete(SessionFile);
+                        LoggedInUsername = null;
+                        LoggedInPassword = null;
+                        ShowPage(AccountPage);
+                        UpdateHomeInformation();
+                        UpdateAccountUIVisibility();
+                        StatusCheckTimer?.Stop();
+                        return;
+                    }
+
+                    if (statusChanged)
+                    {
+                        AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+                        UpdateHomeInformation();
+                        UpdateAccountUIVisibility();
+                    }
+                }
+            }
+            catch { }
+        };
+        StatusCheckTimer.Start();
+    }
+
     private async void StartButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -557,6 +606,7 @@ public partial class MainWindow : Window
                     AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                     UpdateHomeInformation();
                     UpdateAccountUIVisibility();
+                    StartStatusCheck(); // Startet den Live-Check nach Autologin
                 }
                 else
                 {
@@ -615,6 +665,7 @@ public partial class MainWindow : Window
                 AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                 UpdateHomeInformation();
                 UpdateAccountUIVisibility();
+                StartStatusCheck(); // Startet den Live-Check nach manuellem Login
 
                 ShowPage(result.MustChangePassword ? ChangePasswordPage : HomePage);
             }
