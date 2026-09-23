@@ -22,14 +22,11 @@ public partial class MainWindow : Window
     private static readonly string CurrentLauncherVersion = 
         Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
 
-    // Neues Repository: Jannik2401/RFG-Launcher
     private const string LauncherVersionUrl = "https://raw.githubusercontent.com/Jannik2401/RFG-Launcher/main/version.json";
     private const string GitHubOwner = "Jannik2401";
     private const string GitHubRepo = "RFG-Launcher";
     private const string GameExeName = "kirmes.exe";
     private const string AccountServerUrl = "http://node1.waifly.com:25433";
-
-    // Fixer Download-Link für das Spiel aus dem manuellen Release "V2"
     private const string GameReleaseUrl = "https://github.com/Jannik2401/RFG-Launcher/releases/download/V2/game.zip";
 
     private static readonly string[] ProtectedAdminUsernames = { "admin" };
@@ -891,7 +888,7 @@ public partial class MainWindow : Window
     public sealed class UserItem
     {
         [JsonPropertyName("username")]
-        public string? Username { get.set; }
+        public string? Username { get; set; }
 
         [JsonPropertyName("role")]
         public string? Role { get; set; }
