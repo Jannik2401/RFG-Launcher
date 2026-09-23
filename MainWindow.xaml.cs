@@ -22,11 +22,15 @@ public partial class MainWindow : Window
     private static readonly string CurrentLauncherVersion = 
         Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
 
-    private const string LauncherVersionUrl = "https://raw.githubusercontent.com/Jannik2401/RFGLauncher/main/version.json";
+    // Neues Repository: Jannik2401/RFG-Launcher
+    private const string LauncherVersionUrl = "https://raw.githubusercontent.com/Jannik2401/RFG-Launcher/main/version.json";
     private const string GitHubOwner = "Jannik2401";
-    private const string GitHubRepo = "RFGLauncher";
+    private const string GitHubRepo = "RFG-Launcher";
     private const string GameExeName = "kirmes.exe";
     private const string AccountServerUrl = "http://node1.waifly.com:25433";
+
+    // Fixer Download-Link für das Spiel aus dem manuellen Release "V2"
+    private const string GameReleaseUrl = "https://github.com/Jannik2401/RFG-Launcher/releases/download/V2/game.zip";
 
     private static readonly string[] ProtectedAdminUsernames = { "admin" };
 
@@ -42,7 +46,6 @@ public partial class MainWindow : Window
     );
 
     private string VersionFile => Path.Combine(GameDirectory, "version.txt");
-    private string DigestFile => Path.Combine(GameDirectory, "game.digest");
     private string SessionFile => Path.Combine(GameDirectory, "session.json");
 
     private readonly HttpClient Http = new();
@@ -402,53 +405,6 @@ public partial class MainWindow : Window
         StartButton.IsEnabled = IsGameInstalled() && HasBetaAccess;
     }
 
-    private void StartStatusCheck()
-    {
-        StatusCheckTimer?.Stop();
-        StatusCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        StatusCheckTimer.Tick += async (s, e) =>
-        {
-            if (string.IsNullOrEmpty(LoggedInUsername)) return;
-
-            try
-            {
-                using HttpClient client = new();
-                var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/user-status", new { username = LoggedInUsername });
-                var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
-
-                if (result != null && result.Success)
-                {
-                    bool statusChanged = HasBetaAccess != result.HasBetaAccess || LoggedInRole != result.Role || result.IsLocked;
-                    
-                    HasBetaAccess = result.HasBetaAccess;
-                    LoggedInRole = result.Role ?? "user";
-
-                    if (result.IsLocked)
-                    {
-                        MessageBox.Show("Dein Account wurde gesperrt.", "Sicherheit", MessageBoxButton.OK, MessageBoxImage.Error);
-                        if (File.Exists(SessionFile)) File.Delete(SessionFile);
-                        LoggedInUsername = null;
-                        LoggedInPassword = null;
-                        ShowPage(AccountPage);
-                        UpdateHomeInformation();
-                        UpdateAccountUIVisibility();
-                        StatusCheckTimer?.Stop();
-                        return;
-                    }
-
-                    if (statusChanged)
-                    {
-                        AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
-                        UpdateHomeInformation();
-                        UpdateAccountUIVisibility();
-                    }
-                }
-            }
-            catch { }
-        };
-        StatusCheckTimer.Start();
-    }
-
     private async void StartButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -459,24 +415,6 @@ public partial class MainWindow : Window
                 ShowPage(AccountPage);
                 return;
             }
-
-            try
-            {
-                using HttpClient client = new();
-                var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/user-status", new { username = LoggedInUsername });
-                var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
-                if (result != null && result.Success)
-                {
-                    HasBetaAccess = result.HasBetaAccess;
-                    if (result.IsLocked || !HasBetaAccess)
-                    {
-                        MessageBox.Show("Kein aktiver Beta-Zugriff oder Account gesperrt.", "Zugriff verweigert", MessageBoxButton.OK, MessageBoxImage.Stop);
-                        UpdateHomeInformation();
-                        return;
-                    }
-                }
-            }
-            catch { }
 
             if (!HasBetaAccess)
             {
@@ -521,20 +459,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            StatusText.Text = "Suche nach Updates...";
-            var release = await GetLatestGameReleaseAsync();
+            StatusText.Text = "Bereit zum Herunterladen.";
             UpdateButton.IsEnabled = true;
-
-            if (release == null) { StatusText.Text = "Kein Release gefunden."; return; }
-
-            string remoteVersion = NormalizeVersion(release.TagName);
-            string localVersion = NormalizeVersion(GetLocalVersion());
-
-            StatusText.Text = !string.Equals(remoteVersion, localVersion, StringComparison.OrdinalIgnoreCase) || !IsGameInstalled()
-                ? $"Update verfügbar: {remoteVersion}" : "Spiel ist aktuell.";
-
-            VersionText.Text = "Installiert: " + (string.IsNullOrWhiteSpace(localVersion) ? "Keine" : localVersion);
-            ReleaseNotesText.Text = release.Body ?? "Keine Notes.";
+            VersionText.Text = "Release Tag: V2";
+            ReleaseNotesText.Text = "Kirmes Breakdance Simulation - Direkt von Release V2.";
         }
         catch { StatusText.Text = "Fehler bei Update-Prüfung."; }
     }
@@ -544,23 +472,20 @@ public partial class MainWindow : Window
         try
         {
             UpdateButton.IsEnabled = false;
-            var release = await GetLatestGameReleaseAsync();
-            if (release == null) return;
-
-            var asset = release.Assets.FirstOrDefault(a => string.Equals(a.Name, "game.zip", StringComparison.OrdinalIgnoreCase));
-            if (asset == null) { MessageBox.Show("game.zip fehlt im Release.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-
             string tempZip = Path.Combine(Path.GetTempPath(), "RFG_game_update.zip");
             if (File.Exists(tempZip)) File.Delete(tempZip);
 
-            StatusText.Text = "Lade herunter...";
-            using (HttpClient client = new()) { await DownloadFileWithClientAsync(client, asset.BrowserDownloadUrl, tempZip); }
+            StatusText.Text = "Lade game.zip von Release V2 herunter...";
+            using (HttpClient client = new()) 
+            { 
+                await DownloadFileWithClientAsync(client, GameReleaseUrl, tempZip); 
+            }
 
-            StatusText.Text = "Installiere...";
+            StatusText.Text = "Installiere Spieldateien...";
             InstallZip(tempZip);
             File.Delete(tempZip);
 
-            File.WriteAllText(VersionFile, NormalizeVersion(release.TagName));
+            File.WriteAllText(VersionFile, "V2");
             StatusText.Text = "Erfolgreich installiert!";
             UpdateHomeInformation();
         }
@@ -570,17 +495,6 @@ public partial class MainWindow : Window
             MessageBox.Show("Fehler: " + ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally { UpdateButton.IsEnabled = true; }
-    }
-
-    private async Task<GitHubRelease?> GetLatestGameReleaseAsync()
-    {
-        string url = $"https://api.github.com/repos/{GitHubOwner}/{GitHubRepo}/releases?per_page=50";
-        using HttpResponseMessage response = await Http.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-        string json = await response.Content.ReadAsStringAsync();
-        var releases = JsonSerializer.Deserialize<GitHubRelease[]>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        return releases?.Where(r => !r.Draft && !r.Prerelease && r.Assets.Any(a => string.Equals(a.Name, "game.zip", StringComparison.OrdinalIgnoreCase)))
-                        .OrderByDescending(r => ParseVersion(r.TagName)).FirstOrDefault();
     }
 
     private async Task DownloadFileWithClientAsync(HttpClient client, string? url, string destination)
@@ -646,7 +560,6 @@ public partial class MainWindow : Window
                     AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                     UpdateHomeInformation();
                     UpdateAccountUIVisibility();
-                    StartStatusCheck();
                 }
                 else
                 {
@@ -705,7 +618,6 @@ public partial class MainWindow : Window
                 AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                 UpdateHomeInformation();
                 UpdateAccountUIVisibility();
-                StartStatusCheck();
 
                 ShowPage(result.MustChangePassword ? ChangePasswordPage : HomePage);
             }
@@ -742,12 +654,6 @@ public partial class MainWindow : Window
 
             var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/update-display-name", new { username = LoggedInUsername, newDisplayName });
             string responseString = await response.Content.ReadAsStringAsync();
-
-            if (responseString.TrimStart().StartsWith("<"))
-            {
-                MessageBox.Show("Der Server hat unerwartet HTML statt JSON zurückgegeben.", "Server-Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
 
             var result = JsonSerializer.Deserialize<AccountResponse>(responseString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
@@ -804,28 +710,13 @@ public partial class MainWindow : Window
             if (!string.IsNullOrEmpty(LoggedInPassword)) client.DefaultRequestHeaders.Add("X-Admin-Pass", LoggedInPassword);
             
             var response = await client.GetAsync($"{AccountServerUrl}/api/admin/users");
-            
-            if (!response.IsSuccessStatusCode)
-            {
-                AdminActionStatus.Text = $"Server-Fehler: {(int)response.StatusCode} {response.ReasonPhrase}";
-                return;
-            }
-
             var result = await response.Content.ReadFromJsonAsync<AdminUserListResponse>();
             if (result != null && result.Success)
             {
                 UsersItemsControl.ItemsSource = result.Users;
-                AdminActionStatus.Text = $"Benutzer erfolgreich geladen ({result.Users.Count}).";
-            }
-            else
-            {
-                AdminActionStatus.Text = "Server meldet Erfolg = false.";
             }
         }
-        catch (Exception ex) 
-        {  
-            AdminActionStatus.Text = "Fehler: " + ex.Message;
-        }
+        catch { }
     }
 
     private async void AdminCreateUser_Click(object sender, RoutedEventArgs e)
@@ -843,10 +734,9 @@ public partial class MainWindow : Window
             if (!string.IsNullOrEmpty(LoggedInPassword)) client.DefaultRequestHeaders.Add("X-Admin-Pass", LoggedInPassword);
             var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/create-user", new { username, tempPassword, role });
             var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
-            AdminActionStatus.Text = result?.Message ?? string.Empty;
             if (result != null && result.Success) { AdminNewUsernameBox.Clear(); AdminNewTempPassBox.Clear(); await LoadAdminUserListAsync(); }
         }
-        catch { AdminActionStatus.Text = "Fehler."; }
+        catch { }
     }
 
     private async void AdminToggleBeta_Click(object sender, RoutedEventArgs e)
@@ -858,24 +748,10 @@ public partial class MainWindow : Window
                 using HttpClient client = new();
                 if (!string.IsNullOrEmpty(LoggedInUsername)) client.DefaultRequestHeaders.Add("X-Admin-User", LoggedInUsername);
                 if (!string.IsNullOrEmpty(LoggedInPassword)) client.DefaultRequestHeaders.Add("X-Admin-Pass", LoggedInPassword);
-                
-                var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/toggle-beta", new { username = user.Username });
-                var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
-                
-                if (result != null && result.Success)
-                {
-                    AdminActionStatus.Text = $"Beta-Zugang für {user.Username} aktualisiert.";
-                    await LoadAdminUserListAsync();
-                }
-                else
-                {
-                    AdminActionStatus.Text = result?.Message ?? "Fehler beim Aktualisieren des Beta-Zugangs.";
-                }
+                await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/toggle-beta", new { username = user.Username });
+                await LoadAdminUserListAsync();
             }
-            catch (Exception ex) 
-            {  
-                AdminActionStatus.Text = "Fehler: " + ex.Message;
-            }
+            catch { }
         }
     }
 
@@ -979,33 +855,6 @@ public partial class MainWindow : Window
         public string? Password { get; set; }
     }
 
-    private sealed class GitHubRelease
-    {
-        [JsonPropertyName("tag_name")]
-        public string? TagName { get; set; }
-
-        [JsonPropertyName("body")]
-        public string? Body { get; set; }
-
-        [JsonPropertyName("draft")]
-        public bool Draft { get; set; }
-
-        [JsonPropertyName("prerelease")]
-        public bool Prerelease { get; set; }
-
-        [JsonPropertyName("assets")]
-        public GitHubAsset[] Assets { get; set; } = Array.Empty<GitHubAsset>();
-    }
-
-    private sealed class GitHubAsset
-    {
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
-
-        [JsonPropertyName("browser_download_url")]
-        public string? BrowserDownloadUrl { get; set; }
-    }
-
     private sealed class AccountResponse
     {
         [JsonPropertyName("success")]
@@ -1042,7 +891,7 @@ public partial class MainWindow : Window
     public sealed class UserItem
     {
         [JsonPropertyName("username")]
-        public string? Username { get; set; }
+        public string? Username { get.set; }
 
         [JsonPropertyName("role")]
         public string? Role { get; set; }
