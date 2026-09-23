@@ -68,7 +68,7 @@ jobs:
               Move-Item "./publish/BetaLauncher.exe" "./publish/RFGlauncher.exe" -Force
           }
 
-      - name: Release aktualisieren oder neu erstellen
+      - name: Release aktualisieren oder neu erstellen (latest)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
