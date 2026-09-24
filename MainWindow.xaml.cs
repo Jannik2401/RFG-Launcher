@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private const string GitHubRepo = "RFG-Launcher";
     private const string GameExeName = "kirmes.exe";
     private const string AccountServerUrl = "http://node1.waifly.com:25433";
+    private const string GameLaunchToken = "--token=RFG_SECURE_LAUNCH_98765";
 
     private static readonly string[] ProtectedAdminUsernames = { "admin" };
 
@@ -423,24 +424,13 @@ public partial class MainWindow : Window
                     HasBetaAccess = result.HasBetaAccess;
                     LoggedInRole = result.Role ?? "user";
 
-                    // Wenn Account gesperrt wurde oder Beta-Zugriff entzogen wurde -> Spiel beenden und ausloggen
+                    // Wenn der Account gesperrt wurde oder der Beta-Zugriff entzogen wurde -> Nur das Spiel schließen (KEIN Logout!)
                     if (result.IsLocked || !HasBetaAccess)
                     {
                         foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(GameExeName)))
                         {
                             try { process.Kill(); } catch { }
                         }
-
-                        MessageBox.Show("Dein Beta-Zugriff wurde entzogen oder der Account gesperrt.", "Zugriff verweigert", MessageBoxButton.OK, MessageBoxImage.Stop);
-                        
-                        if (File.Exists(SessionFile)) File.Delete(SessionFile);
-                        LoggedInUsername = null;
-                        LoggedInPassword = null;
-                        ShowPage(AccountPage);
-                        UpdateHomeInformation();
-                        UpdateAccountUIVisibility();
-                        StatusCheckTimer?.Stop();
-                        return;
                     }
 
                     if (statusChanged)
@@ -501,6 +491,7 @@ public partial class MainWindow : Window
             Process.Start(new ProcessStartInfo
             {
                 FileName = gameExe,
+                Arguments = GameLaunchToken,
                 WorkingDirectory = Path.GetDirectoryName(gameExe) ?? GameDirectory,
                 UseShellExecute = true
             });
