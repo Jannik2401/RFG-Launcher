@@ -563,7 +563,7 @@ public partial class MainWindow : Window
             File.WriteAllText(VersionFile, NormalizeVersion(release.TagName));
             StatusText.Text = "Erfolgreich installiert!";
             
-            // UI und Release Notes sofort aktualisieren
+            // Sofortige UI-Aktualisierung (Version + Release Notes frisch laden)
             UpdateHomeInformation();
             await CheckForUpdatesAsync();
         }
