@@ -22,11 +22,9 @@ public partial class MainWindow : Window
     private static readonly string CurrentLauncherVersion = 
         Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
 
-    // Korrigierte Links mit Bindestrich "RFG-Launcher"
     private const string LauncherVersionUrl = "https://raw.githubusercontent.com/Jannik2401/RFG-Launcher/main/version.json";
     private const string GitHubOwner = "Jannik2401";
     private const string GitHubRepo = "RFG-Launcher";
-    
     private const string GameExeName = "kirmes.exe";
     private const string AccountServerUrl = "http://node1.waifly.com:25433";
 
@@ -564,7 +562,10 @@ public partial class MainWindow : Window
 
             File.WriteAllText(VersionFile, NormalizeVersion(release.TagName));
             StatusText.Text = "Erfolgreich installiert!";
+            
+            // UI und Release Notes sofort aktualisieren
             UpdateHomeInformation();
+            await CheckForUpdatesAsync();
         }
         catch (Exception ex)
         {
@@ -581,8 +582,6 @@ public partial class MainWindow : Window
         response.EnsureSuccessStatusCode();
         string json = await response.Content.ReadAsStringAsync();
         var releases = JsonSerializer.Deserialize<GitHubRelease[]>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        
-        // Findet das neueste Release, das eine game.zip enthält (berücksichtigt V3 etc.)
         return releases?.Where(r => !r.Draft && r.Assets.Any(a => string.Equals(a.Name, "game.zip", StringComparison.OrdinalIgnoreCase)))
                         .OrderByDescending(r => ParseVersion(r.TagName)).FirstOrDefault();
     }
