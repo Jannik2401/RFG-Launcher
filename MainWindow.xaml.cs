@@ -423,9 +423,16 @@ public partial class MainWindow : Window
                     HasBetaAccess = result.HasBetaAccess;
                     LoggedInRole = result.Role ?? "user";
 
-                    if (result.IsLocked)
+                    // Wenn Account gesperrt wurde oder Beta-Zugriff entzogen wurde -> Spiel beenden und ausloggen
+                    if (result.IsLocked || !HasBetaAccess)
                     {
-                        MessageBox.Show("Dein Account wurde gesperrt.", "Sicherheit", MessageBoxButton.OK, MessageBoxImage.Error);
+                        foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(GameExeName)))
+                        {
+                            try { process.Kill(); } catch { }
+                        }
+
+                        MessageBox.Show("Dein Beta-Zugriff wurde entzogen oder der Account gesperrt.", "Zugriff verweigert", MessageBoxButton.OK, MessageBoxImage.Stop);
+                        
                         if (File.Exists(SessionFile)) File.Delete(SessionFile);
                         LoggedInUsername = null;
                         LoggedInPassword = null;
@@ -563,7 +570,6 @@ public partial class MainWindow : Window
             File.WriteAllText(VersionFile, NormalizeVersion(release.TagName));
             StatusText.Text = "Erfolgreich installiert!";
             
-            // Sofortige UI-Aktualisierung (Version + Release Notes frisch laden)
             UpdateHomeInformation();
             await CheckForUpdatesAsync();
         }
