@@ -1266,44 +1266,6 @@ public partial class MainWindow : Window
         await LoadAdminReportsAsync();
     }
 
-    private async Task ApplyReportBanAsync(ReportItem report, int minutes)
-    {
-        if (string.IsNullOrWhiteSpace(report.TargetUsername))
-        {
-            AdminActionStatus.Text = $"Kein Konto zu '{report.TargetName}' gefunden - Multiplayer-Sperre nicht möglich.";
-            return;
-        }
-
-        using HttpClient client = CreateAdminClient();
-        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/mp-ban", new
-        {
-            username = report.TargetUsername,
-            minutes
-        });
-
-        AdminActionStatus.Text = result.IsSuccessStatusCode
-            ? $"{report.TargetName} ist bis {DateTime.Now.AddMinutes(minutes):dd.MM. HH:mm} vom Multiplayer ausgeschlossen."
-            : "Multiplayer-Sperre fehlgeschlagen.";
-
-        await LoadAdminReportsAsync();
-        await LoadAdminUserListAsync();
-    }
-
-    private async void AdminReportMpBan1h_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is ReportItem report) await ApplyReportBanAsync(report, 60);
-    }
-
-    private async void AdminReportMpBan24h_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is ReportItem report) await ApplyReportBanAsync(report, 60 * 24);
-    }
-
-    private async void AdminReportMpBan7d_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is ReportItem report) await ApplyReportBanAsync(report, 60 * 24 * 7);
-    }
-
     private async void AdminReportLock_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as Button)?.DataContext is not ReportItem report) return;
@@ -1341,30 +1303,6 @@ public partial class MainWindow : Window
             : "Report konnte nicht aktualisiert werden.";
 
         await LoadAdminReportsAsync();
-    }
-
-    private async void AdminUserMpBan_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is not UserItem user) return;
-
-        const int minutes = 60 * 24;
-
-        using HttpClient client = CreateAdminClient();
-        await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/mp-ban", new { username = user.Username, minutes });
-
-        AdminActionStatus.Text = $"{user.Username} ist bis {DateTime.Now.AddMinutes(minutes):dd.MM. HH:mm} vom Multiplayer ausgeschlossen.";
-        await LoadAdminUserListAsync();
-    }
-
-    private async void AdminUserMpUnban_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is not UserItem user) return;
-
-        using HttpClient client = CreateAdminClient();
-        await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/mp-ban-clear", new { username = user.Username });
-
-        AdminActionStatus.Text = $"Multiplayer-Sperre fuer {user.Username} aufgehoben.";
-        await LoadAdminUserListAsync();
     }
 
     private PerformanceCounterWrapper? PerformanceCounter;
@@ -1503,12 +1441,6 @@ public partial class MainWindow : Window
         [JsonPropertyName("mustChangePassword")]
         public bool MustChangePassword { get; set; }
 
-        [JsonPropertyName("mpBannedUntil")]
-        public string? MpBannedUntil { get; set; }
-
-        [JsonPropertyName("multiplayerBanned")]
-        public bool MultiplayerBanned { get; set; }
-
         public string Display => string.IsNullOrWhiteSpace(DisplayName) || DisplayName == Username
             ? (Username ?? "?")
             : DisplayName;
@@ -1518,15 +1450,6 @@ public partial class MainWindow : Window
 
         public string LockText => IsLocked ? "Gesperrt: Ja" : "Gesperrt: Nein";
         public string LockColor => IsLocked ? "#FB7185" : "#34D399";
-
-        public string MpBanText => MultiplayerBanned ? "MP-Bann bis " + FormatBan(MpBannedUntil) : "MP: Frei";
-        public string MpBanColor => MultiplayerBanned ? "#FB7185" : "#34D399";
-
-        public static string FormatBan(string? iso)
-        {
-            if (string.IsNullOrWhiteSpace(iso)) return "-";
-            return DateTime.TryParse(iso, out DateTime parsed) ? parsed.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "-";
-        }
     }
 
     /// <summary>Wird vom Launcher ins Spielverzeichnis geschrieben und vom Spiel gelesen.</summary>

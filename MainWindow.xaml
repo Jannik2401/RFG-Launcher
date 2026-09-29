@@ -755,9 +755,6 @@
                                                             <WrapPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
                                                                 <Button Content="Acc sperren" Style="{StaticResource RowActionButton}" Click="AdminReportLock_Click"
                                                                         Margin="0,0,6,0" Background="{StaticResource WarningSurface}" Foreground="#FFFFFF" />
-                                                                <Button Content="MP 1h" Style="{StaticResource RowActionButton}" Click="AdminReportMpBan1h_Click" Margin="0,0,6,0" />
-                                                                <Button Content="MP 24h" Style="{StaticResource RowActionButton}" Click="AdminReportMpBan24h_Click" Margin="0,0,6,0" />
-                                                                <Button Content="MP 7d" Style="{StaticResource RowActionButton}" Click="AdminReportMpBan7d_Click" Margin="0,0,6,0" />
                                                                 <Button Content="Erledigt" Style="{StaticResource RowActionButton}" Click="AdminReportResolve_Click" />
                                                             </WrapPanel>
                                                         </Grid>
@@ -793,18 +790,14 @@
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding BetaText}" FontSize="11" FontWeight="SemiBold"
                                                                    Foreground="{Binding BetaColor}" Margin="0,0,0,3" />
-                                                        <TextBlock Text="{Binding LockText}" FontSize="11" FontWeight="SemiBold"
-                                                                   Foreground="{Binding LockColor}" Margin="0,0,0,3" />
-                                                        <TextBlock Text="{Binding MpBanText}" FontSize="11" FontWeight="SemiBold"
-                                                                   Foreground="{Binding MpBanColor}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding LockText}" FontSize="11" FontWeight="SemiBold"
+                                                                       Foreground="{Binding LockColor}" />
                                                     </StackPanel>
 
                                                     <WrapPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal">
                                                         <Button Content="Beta umschalten" Style="{StaticResource RowActionButton}" Click="AdminToggleBeta_Click" Margin="0,0,7,0" />
                                                         <Button Content="Passwort Reset" Style="{StaticResource RowActionButton}" Click="AdminResetPw_Click" Margin="0,0,7,0" />
                                                         <Button Content="Sperren" Style="{StaticResource RowActionButton}" Click="AdminToggleLock_Click" Margin="0,0,7,0" Background="{StaticResource WarningSurface}" Foreground="#FFFFFF" />
-                                                        <Button Content="MP 24h" Style="{StaticResource RowActionButton}" Click="AdminUserMpBan_Click" Margin="0,0,7,0" />
-                                                        <Button Content="MP frei" Style="{StaticResource RowActionButton}" Click="AdminUserMpUnban_Click" Margin="0,0,7,0" />
                                                         <Button Content="Löschen" Style="{StaticResource RowActionButton}" Click="AdminDeleteUser_Click" Background="{StaticResource DangerSurface}" Foreground="#FFFFFF" />
                                                     </WrapPanel>
                                                 </Grid>

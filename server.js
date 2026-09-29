@@ -116,7 +116,7 @@ function ensureDefaultAdmin() {
 ensureDefaultAdmin();
 
 // ==========================================
-// HILFSFUNKTIONEN FÜR REPORTS + MULTIPLAYER-SPERREN
+// HILFSFUNKTIONEN FÜR REPORTS + SPERREN
 // ==========================================
 
 const MAX_REPORTS = 200;
@@ -153,15 +153,6 @@ function isRateLimited(key) {
     }
     entry.count += 1;
     return entry.count > REPORT_RATE_LIMIT_COUNT;
-}
-
-function getMultiplayerBan(user) {
-    if (!user || !user.mpBannedUntil) return { banned: false, until: null };
-    const until = new Date(user.mpBannedUntil);
-    if (isNaN(until.getTime()) || until.getTime() <= Date.now()) {
-        return { banned: false, until: null };
-    }
-    return { banned: true, until: until.toISOString() };
 }
 
 async function forwardReportToDiscord(content) {
@@ -343,15 +334,12 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
     res.json({
         success: true,
         users: users.map(u => {
-            const ban = getMultiplayerBan(u);
             return {
                 username: u.username,
                 displayName: u.displayName || u.username,
                 role: u.role,
                 hasBetaAccess: u.hasBetaAccess,
-                isLocked: u.isLocked,
-                mpBannedUntil: ban.until,
-                multiplayerBanned: ban.banned
+                isLocked: u.isLocked
             };
         })
     });
@@ -383,7 +371,6 @@ app.post('/api/admin/create-user', requireAdmin, (req, res) => {
         hasBetaAccess: false,
         mustChangePassword: true,
         isLocked: false,
-        mpBannedUntil: null,
         createdAt: new Date().toISOString()
     });
 
@@ -574,39 +561,6 @@ app.post('/api/admin/reports/resolve', requireAdmin, (req, res) => {
     res.json({ success: true, message: 'Report als erledigt markiert.' });
 });
 
-app.post('/api/admin/mp-ban', requireAdmin, (req, res) => {
-    const { username, minutes } = req.body;
-    const duration = Number(minutes);
-    if (!username || !Number.isFinite(duration) || duration < 1 || duration > 525600) {
-        return res.status(400).json({ success: false, message: 'Ungültige Dauer (1 Minute bis 1 Jahr).' });
-    }
-
-    let users = readUsers();
-    const user = users.find(u => u.username.toLowerCase() === String(username).toLowerCase());
-    if (!user) return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden.' });
-
-    user.mpBannedUntil = new Date(Date.now() + duration * 60000).toISOString();
-    writeUsers(users);
-
-    res.json({
-        success: true,
-        mpBannedUntil: user.mpBannedUntil,
-        message: 'Multiplayer gesperrt bis ' + new Date(user.mpBannedUntil).toLocaleString('de-DE') + '.'
-    });
-});
-
-app.post('/api/admin/mp-ban-clear', requireAdmin, (req, res) => {
-    const { username } = req.body;
-    let users = readUsers();
-    const user = users.find(u => u.username.toLowerCase() === String(username).toLowerCase());
-    if (!user) return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden.' });
-
-    user.mpBannedUntil = null;
-    writeUsers(users);
-
-    res.json({ success: true, message: 'Multiplayer-Sperre aufgehoben.' });
-});
-
 // Vom Spiel beim Betreten/Hosten einer Lobby aufgerufen.
 app.post('/api/ban-status', (req, res) => {
     const playerName = sanitizeName(req.body.playerName, 24);
@@ -617,20 +571,15 @@ app.post('/api/ban-status', (req, res) => {
         return res.json({
             success: true,
             found: false,
-            accountLocked: false,
-            multiplayerBanned: false,
-            until: null
+            accountLocked: false
         });
     }
 
-    const ban = getMultiplayerBan(user);
     res.json({
         success: true,
         found: true,
         displayName: user.displayName || user.username,
-        accountLocked: !!user.isLocked,
-        multiplayerBanned: ban.banned,
-        until: ban.until
+        accountLocked: !!user.isLocked
     });
 });
 
