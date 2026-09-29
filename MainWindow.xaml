@@ -586,10 +586,14 @@
                                 <!-- profile -->
                                 <StackPanel x:Name="AccountProfilePanel" Visibility="Collapsed">
                                     <TextBlock Text="PROFIL" Style="{StaticResource Text.StatLabel}" />
-                                    <TextBlock x:Name="ProfileUsernameDisplay" Text="Username" FontSize="22" FontWeight="Bold"
-                                               Foreground="{StaticResource TextPrimary}" Margin="0,6,0,22" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="ProfileUsernameDisplay" Text="Anzeigename" FontSize="22" FontWeight="Bold"
+                                               Foreground="{StaticResource TextPrimary}" Margin="0,6,0,2" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="ProfileLoginNameText" Text="@username" FontSize="12"
+                                               Foreground="{StaticResource TextMuted}" Margin="0,0,0,22" TextTrimming="CharacterEllipsis" />
 
                                     <TextBlock Text="ANZEIGENAME ÄNDERN" Style="{StaticResource Text.FieldLabel}" />
+                                    <TextBlock Text="Wird im Spiel, im Scoreboard und in Reports verwendet (2–20 Zeichen)."
+                                               Style="{StaticResource Text.Body}" Margin="0,0,0,10" />
                                     <TextBox x:Name="NewDisplayNameTextBox" Style="{StaticResource ModernTextBox}" Height="42" Margin="0,0,0,12" />
 
                                     <Button Content="Anzeigename speichern" Style="{StaticResource PrimaryButton}"
@@ -652,6 +656,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -689,7 +694,83 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14">
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14" Margin="0,0,0,16" MaxHeight="268">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0" Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="SPIELER-REPORTS" Style="{StaticResource Text.FieldLabel}" />
+                                        <TextBlock x:Name="AdminReportCountText" Text="0 offen" Margin="12,0,0,0"
+                                                   FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Accent}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <Button Grid.Column="1" Content="Aktualisieren" Style="{StaticResource RowActionButton}"
+                                            Click="AdminRefreshReports_Click" />
+                                </Grid>
+
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel>
+                                        <TextBlock x:Name="AdminReportsEmptyText" Text="Keine Meldungen vorhanden." Visibility="Collapsed"
+                                                   FontSize="12" Foreground="{StaticResource TextMuted}" Margin="0,4,0,6" />
+                                        <ItemsControl x:Name="ReportsItemsControl">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Style="{StaticResource Card.Sunken}" Padding="12" Margin="0,0,0,8">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="200" />
+                                                                <ColumnDefinition Width="12" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="12" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Target}" FontWeight="SemiBold" FontSize="13"
+                                                                           Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock FontSize="11" Margin="0,3,0,0" Foreground="{StaticResource TextMuted}">
+                                                                    <Run Text="gemeldet von " /><Run Text="{Binding ReporterName, Mode=OneWay}" />
+                                                                </TextBlock>
+                                                                <TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold" Margin="0,3,0,0"
+                                                                           Foreground="{Binding StatusColor}" />
+                                                            </StackPanel>
+
+                                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Reason}" FontSize="12" Foreground="{StaticResource TextSecondary}"
+                                                                           TextWrapping="Wrap" MaxHeight="42" />
+                                                                <TextBlock Text="{Binding TimeText}" FontSize="10.5" Margin="0,4,0,0"
+                                                                           Foreground="{StaticResource TextMuted}" />
+                                                            </StackPanel>
+
+                                                            <WrapPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                                <Button Content="Acc sperren" Style="{StaticResource RowActionButton}" Click="AdminReportLock_Click"
+                                                                        Margin="0,0,6,0" Background="{StaticResource WarningSurface}" Foreground="#FFFFFF" />
+                                                                <Button Content="MP 1h" Style="{StaticResource RowActionButton}" Click="AdminReportMpBan1h_Click" Margin="0,0,6,0" />
+                                                                <Button Content="MP 24h" Style="{StaticResource RowActionButton}" Click="AdminReportMpBan24h_Click" Margin="0,0,6,0" />
+                                                                <Button Content="MP 7d" Style="{StaticResource RowActionButton}" Click="AdminReportMpBan7d_Click" Margin="0,0,6,0" />
+                                                                <Button Content="Erledigt" Style="{StaticResource RowActionButton}" Click="AdminReportResolve_Click" />
+                                                            </WrapPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="14">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl x:Name="UsersItemsControl">
                                     <ItemsControl.ItemTemplate>
@@ -697,29 +778,33 @@
                                             <Border Style="{StaticResource Card.Sunken}" Padding="14" Margin="0,0,0,8">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="170" />
-                                                        <ColumnDefinition Width="140" />
+                                                        <ColumnDefinition Width="150" />
+                                                        <ColumnDefinition Width="178" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
 
                                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Username}" FontWeight="SemiBold" FontSize="13.5"
+                                                        <TextBlock Text="{Binding Display}" FontWeight="SemiBold" FontSize="13.5"
                                                                    Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Text="{Binding Role}" FontSize="11" Margin="0,3,0,0"
-                                                                   Foreground="{StaticResource Accent}" />
+                                                        <TextBlock Text="{Binding Username}" FontSize="11" Margin="0,3,0,0"
+                                                                   Foreground="{StaticResource Accent}" TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding BetaText}" FontSize="11" FontWeight="SemiBold"
                                                                    Foreground="{Binding BetaColor}" Margin="0,0,0,3" />
                                                         <TextBlock Text="{Binding LockText}" FontSize="11" FontWeight="SemiBold"
-                                                                   Foreground="{Binding LockColor}" />
+                                                                   Foreground="{Binding LockColor}" Margin="0,0,0,3" />
+                                                        <TextBlock Text="{Binding MpBanText}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{Binding MpBanColor}" TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
 
                                                     <WrapPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal">
                                                         <Button Content="Beta umschalten" Style="{StaticResource RowActionButton}" Click="AdminToggleBeta_Click" Margin="0,0,7,0" />
                                                         <Button Content="Passwort Reset" Style="{StaticResource RowActionButton}" Click="AdminResetPw_Click" Margin="0,0,7,0" />
                                                         <Button Content="Sperren" Style="{StaticResource RowActionButton}" Click="AdminToggleLock_Click" Margin="0,0,7,0" Background="{StaticResource WarningSurface}" Foreground="#FFFFFF" />
+                                                        <Button Content="MP 24h" Style="{StaticResource RowActionButton}" Click="AdminUserMpBan_Click" Margin="0,0,7,0" />
+                                                        <Button Content="MP frei" Style="{StaticResource RowActionButton}" Click="AdminUserMpUnban_Click" Margin="0,0,7,0" />
                                                         <Button Content="Löschen" Style="{StaticResource RowActionButton}" Click="AdminDeleteUser_Click" Background="{StaticResource DangerSurface}" Foreground="#FFFFFF" />
                                                     </WrapPanel>
                                                 </Grid>

@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private string VersionFile => Path.Combine(GameDirectory, "version.txt");
     private string DigestFile => Path.Combine(GameDirectory, "game.digest");
     private string SessionFile => Path.Combine(GameDirectory, "session.json");
+    private const string GameIdentityFile = "rfg_identity.json";
 
     private readonly HttpClient Http = new();
     private DispatcherTimer? PerformanceTimer;
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
     private string? LoggedInUsername;
     private string? LoggedInPassword;
     private string? LoggedInRole;
+    private string? LoggedInDisplayName;
     private bool HasBetaAccess;
 
     private bool _isPasswordVisible;
@@ -219,22 +221,75 @@ public partial class MainWindow : Window
 
         if (isLoggedIn)
         {
-            CornerUsernameText.Text = LoggedInUsername;
+            string display = string.IsNullOrWhiteSpace(LoggedInDisplayName) ? LoggedInUsername! : LoggedInDisplayName!;
+
+            CornerUsernameText.Text = display;
             CornerRoleText.Text = $"Rolle: {LoggedInRole?.ToUpper()}";
 
-            string initial = string.IsNullOrEmpty(LoggedInUsername) ? "?" : LoggedInUsername[..1].ToUpperInvariant();
+            string initial = string.IsNullOrEmpty(display) ? "?" : display[..1].ToUpperInvariant();
             CornerAvatarText.Text = initial;
             CornerAvatarBox.Background = (Brush)FindResource(LoggedInRole == "admin" ? "AdminGradient" : "AccentGradient");
 
             AccountLoginPanel.Visibility = Visibility.Collapsed;
             AccountProfilePanel.Visibility = Visibility.Visible;
-            ProfileUsernameDisplay.Text = LoggedInUsername;
+            ProfileUsernameDisplay.Text = display;
+            ProfileLoginNameText.Text = "@" + LoggedInUsername;
         }
         else
         {
             AccountLoginPanel.Visibility = Visibility.Visible;
             AccountProfilePanel.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private string CurrentDisplayName =>
+        string.IsNullOrWhiteSpace(LoggedInDisplayName) ? LoggedInUsername ?? string.Empty : LoggedInDisplayName!;
+
+    private void PrefillDisplayNameBox()
+    {
+        if (!NewDisplayNameTextBox.IsKeyboardFocusWithin) NewDisplayNameTextBox.Text = CurrentDisplayName;
+    }
+
+    /// <summary>
+    /// Uebergibt dem Spiel, wer der Spieler ist. Das Spiel kennt sonst nur den
+    /// lokalen PlayerPrefs-Namen und kann Reports keinem Account zuordnen.
+    /// </summary>
+    private void WriteGameIdentity()
+    {
+        if (string.IsNullOrEmpty(LoggedInUsername)) return;
+
+        try
+        {
+            Directory.CreateDirectory(GameDirectory);
+            string targetDir = FindGameExe() is { } exe ? Path.GetDirectoryName(exe) ?? GameDirectory : GameDirectory;
+            string path = Path.Combine(targetDir, GameIdentityFile);
+
+            var identity = new GameIdentity
+            {
+                Username = LoggedInUsername,
+                DisplayName = CurrentDisplayName,
+                Role = LoggedInRole ?? "user",
+                ServerUrl = AccountServerUrl,
+                IssuedAt = DateTime.UtcNow.ToString("O")
+            };
+
+            File.WriteAllText(path, JsonSerializer.Serialize(identity, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { /* das Spiel laeuft auch ohne Identitaet, nur ohne gemeldeten Namen */ }
+    }
+
+    private void DeleteGameIdentity()
+    {
+        try
+        {
+            foreach (string dir in new[] { GameDirectory }.Concat(
+                FindGameExe() is { } exe && Path.GetDirectoryName(exe) is { } d ? new[] { d } : Array.Empty<string>()))
+            {
+                string path = Path.Combine(dir, GameIdentityFile);
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+        catch { }
     }
 
     private void LogoutButton_Click(object sender, RoutedEventArgs e)
@@ -245,9 +300,12 @@ public partial class MainWindow : Window
         }
         catch { }
 
+        DeleteGameIdentity();
+
         LoggedInUsername = null;
         LoggedInPassword = null;
         LoggedInRole = null;
+        LoggedInDisplayName = null;
         HasBetaAccess = false;
 
         NavAdminButton.Visibility = Visibility.Collapsed;
@@ -638,9 +696,10 @@ public partial class MainWindow : Window
                 if (result != null && result.Success)
                 {
                     bool statusChanged = HasBetaAccess != result.HasBetaAccess || LoggedInRole != result.Role || result.IsLocked;
-                    
+
                     HasBetaAccess = result.HasBetaAccess;
                     LoggedInRole = result.Role ?? "user";
+                    if (!string.IsNullOrWhiteSpace(result.DisplayName)) LoggedInDisplayName = result.DisplayName;
 
                     // Wenn der Account gesperrt wurde oder der Beta-Zugriff entzogen wurde -> Nur das Spiel schließen (KEIN Logout!)
                     if (result.IsLocked || !HasBetaAccess)
@@ -698,6 +757,8 @@ public partial class MainWindow : Window
                 MessageBox.Show("Du hast keinen Beta-Zugriff.", "Zugriff verweigert", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+
+            WriteGameIdentity();
 
             string? gameExe = FindGameExe();
             if (gameExe == null)
@@ -859,11 +920,14 @@ public partial class MainWindow : Window
                     LoggedInUsername = result.Username ?? session.Username;
                     LoggedInPassword = session.Password;
                     LoggedInRole = result.Role ?? "user";
+                    LoggedInDisplayName = result.DisplayName ?? LoggedInUsername;
                     HasBetaAccess = result.HasBetaAccess;
 
                     NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                     UpdateHomeInformation();
                     UpdateAccountUIVisibility();
+                    PrefillDisplayNameBox();
+                    WriteGameIdentity();
                     StartStatusCheck();
                 }
                 else
@@ -911,6 +975,7 @@ public partial class MainWindow : Window
                 LoggedInUsername = result.Username ?? username;
                 LoggedInPassword = password;
                 LoggedInRole = result.Role ?? "user";
+                LoggedInDisplayName = result.DisplayName ?? LoggedInUsername;
                 HasBetaAccess = result.HasBetaAccess;
 
                 SaveSession(username, password);
@@ -923,6 +988,8 @@ public partial class MainWindow : Window
                 NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                 UpdateHomeInformation();
                 UpdateAccountUIVisibility();
+                PrefillDisplayNameBox();
+                WriteGameIdentity();
                 StartStatusCheck();
 
                 ShowPage(result.MustChangePassword ? ChangePasswordPage : HomePage);
@@ -971,9 +1038,10 @@ public partial class MainWindow : Window
 
             if (result != null && result.Success)
             {
+                LoggedInDisplayName = result.DisplayName ?? newDisplayName;
                 MessageBox.Show("Anzeigename erfolgreich geändert!", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
-                CornerUsernameText.Text = newDisplayName;
-                ProfileUsernameDisplay.Text = newDisplayName;
+                UpdateAccountUIVisibility();
+                WriteGameIdentity();
                 NewDisplayNameTextBox.Clear();
             }
             else
@@ -1156,6 +1224,149 @@ public partial class MainWindow : Window
         }
     }
 
+    private HttpClient CreateAdminClient()
+    {
+        HttpClient client = new();
+        if (!string.IsNullOrEmpty(LoggedInUsername)) client.DefaultRequestHeaders.Add("X-Admin-User", LoggedInUsername);
+        if (!string.IsNullOrEmpty(LoggedInPassword)) client.DefaultRequestHeaders.Add("X-Admin-Pass", LoggedInPassword);
+        return client;
+    }
+
+    private async Task LoadAdminReportsAsync()
+    {
+        try
+        {
+            using HttpClient client = CreateAdminClient();
+            var response = await client.GetAsync($"{AccountServerUrl}/api/admin/reports");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                AdminReportCountText.Text = "nicht verfügbar";
+                AdminActionStatus.Text = $"Server-Fehler beim Laden der Reports: {(int)response.StatusCode} {response.ReasonPhrase}";
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<AdminReportListResponse>();
+            if (result != null && result.Success)
+            {
+                ReportsItemsControl.ItemsSource = result.Reports;
+                AdminReportCountText.Text = $"{result.Open} offen";
+                AdminReportsEmptyText.Visibility = result.Reports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+        catch (Exception ex)
+        {
+            AdminReportCountText.Text = "Fehler";
+            AdminActionStatus.Text = "Fehler: " + ex.Message;
+        }
+    }
+
+    private async void AdminRefreshReports_Click(object sender, RoutedEventArgs e)
+    {
+        await LoadAdminReportsAsync();
+    }
+
+    private async Task ApplyReportBanAsync(ReportItem report, int minutes)
+    {
+        if (string.IsNullOrWhiteSpace(report.TargetUsername))
+        {
+            AdminActionStatus.Text = $"Kein Konto zu '{report.TargetName}' gefunden - Multiplayer-Sperre nicht möglich.";
+            return;
+        }
+
+        using HttpClient client = CreateAdminClient();
+        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/mp-ban", new
+        {
+            username = report.TargetUsername,
+            minutes
+        });
+
+        AdminActionStatus.Text = result.IsSuccessStatusCode
+            ? $"{report.TargetName} ist bis {DateTime.Now.AddMinutes(minutes):dd.MM. HH:mm} vom Multiplayer ausgeschlossen."
+            : "Multiplayer-Sperre fehlgeschlagen.";
+
+        await LoadAdminReportsAsync();
+        await LoadAdminUserListAsync();
+    }
+
+    private async void AdminReportMpBan1h_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is ReportItem report) await ApplyReportBanAsync(report, 60);
+    }
+
+    private async void AdminReportMpBan24h_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is ReportItem report) await ApplyReportBanAsync(report, 60 * 24);
+    }
+
+    private async void AdminReportMpBan7d_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is ReportItem report) await ApplyReportBanAsync(report, 60 * 24 * 7);
+    }
+
+    private async void AdminReportLock_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is not ReportItem report) return;
+
+        if (string.IsNullOrWhiteSpace(report.TargetUsername))
+        {
+            AdminActionStatus.Text = $"Kein Konto zu '{report.TargetName}' gefunden - Sperre nicht möglich.";
+            return;
+        }
+
+        using HttpClient client = CreateAdminClient();
+        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/set-lock", new
+        {
+            username = report.TargetUsername,
+            locked = true
+        });
+
+        AdminActionStatus.Text = result.IsSuccessStatusCode
+            ? $"Konto von {report.TargetName} wurde gesperrt."
+            : "Sperren fehlgeschlagen.";
+
+        await LoadAdminReportsAsync();
+        await LoadAdminUserListAsync();
+    }
+
+    private async void AdminReportResolve_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is not ReportItem report) return;
+
+        using HttpClient client = CreateAdminClient();
+        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/reports/resolve", new { id = report.Id });
+
+        AdminActionStatus.Text = result.IsSuccessStatusCode
+            ? "Report als erledigt markiert."
+            : "Report konnte nicht aktualisiert werden.";
+
+        await LoadAdminReportsAsync();
+    }
+
+    private async void AdminUserMpBan_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is not UserItem user) return;
+
+        const int minutes = 60 * 24;
+
+        using HttpClient client = CreateAdminClient();
+        await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/mp-ban", new { username = user.Username, minutes });
+
+        AdminActionStatus.Text = $"{user.Username} ist bis {DateTime.Now.AddMinutes(minutes):dd.MM. HH:mm} vom Multiplayer ausgeschlossen.";
+        await LoadAdminUserListAsync();
+    }
+
+    private async void AdminUserMpUnban_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is not UserItem user) return;
+
+        using HttpClient client = CreateAdminClient();
+        await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/mp-ban-clear", new { username = user.Username });
+
+        AdminActionStatus.Text = $"Multiplayer-Sperre fuer {user.Username} aufgehoben.";
+        await LoadAdminUserListAsync();
+    }
+
     private PerformanceCounterWrapper? PerformanceCounter;
 
     private void StartPerformanceMonitor()
@@ -1235,6 +1446,9 @@ public partial class MainWindow : Window
         [JsonPropertyName("username")]
         public string? Username { get; set; }
 
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
+
         [JsonPropertyName("role")]
         public string? Role { get; set; }
 
@@ -1257,10 +1471,25 @@ public partial class MainWindow : Window
         public List<UserItem> Users { get; set; } = new();
     }
 
+    private sealed class AdminReportListResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [JsonPropertyName("open")]
+        public int Open { get; set; }
+
+        [JsonPropertyName("reports")]
+        public List<ReportItem> Reports { get; set; } = new();
+    }
+
     public sealed class UserItem
     {
         [JsonPropertyName("username")]
         public string? Username { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
 
         [JsonPropertyName("role")]
         public string? Role { get; set; }
@@ -1274,11 +1503,88 @@ public partial class MainWindow : Window
         [JsonPropertyName("mustChangePassword")]
         public bool MustChangePassword { get; set; }
 
+        [JsonPropertyName("mpBannedUntil")]
+        public string? MpBannedUntil { get; set; }
+
+        [JsonPropertyName("multiplayerBanned")]
+        public bool MultiplayerBanned { get; set; }
+
+        public string Display => string.IsNullOrWhiteSpace(DisplayName) || DisplayName == Username
+            ? (Username ?? "?")
+            : DisplayName;
+
         public string BetaText => HasBetaAccess ? "Beta: Aktiv" : "Beta: Inaktiv";
         public string BetaColor => HasBetaAccess ? "#34D399" : "#FB7185";
 
         public string LockText => IsLocked ? "Gesperrt: Ja" : "Gesperrt: Nein";
         public string LockColor => IsLocked ? "#FB7185" : "#34D399";
+
+        public string MpBanText => MultiplayerBanned ? "MP-Bann bis " + FormatBan(MpBannedUntil) : "MP: Frei";
+        public string MpBanColor => MultiplayerBanned ? "#FB7185" : "#34D399";
+
+        public static string FormatBan(string? iso)
+        {
+            if (string.IsNullOrWhiteSpace(iso)) return "-";
+            return DateTime.TryParse(iso, out DateTime parsed) ? parsed.ToLocalTime().ToString("dd.MM.yyyy HH:mm") : "-";
+        }
+    }
+
+    /// <summary>Wird vom Launcher ins Spielverzeichnis geschrieben und vom Spiel gelesen.</summary>
+    public sealed class GameIdentity
+    {
+        [JsonPropertyName("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [JsonPropertyName("role")]
+        public string Role { get; set; } = "user";
+
+        [JsonPropertyName("serverUrl")]
+        public string ServerUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("issuedAt")]
+        public string IssuedAt { get; set; } = string.Empty;
+    }
+
+    public sealed class ReportItem
+    {        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("reporterName")]
+        public string? ReporterName { get; set; }
+
+        [JsonPropertyName("targetName")]
+        public string? TargetName { get; set; }
+
+        [JsonPropertyName("targetUsername")]
+        public string? TargetUsername { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        public string? CreatedAt { get; set; }
+
+        [JsonPropertyName("status")]
+        public string? Status { get; set; }
+
+        [JsonPropertyName("resolvedBy")]
+        public string? ResolvedBy { get; set; }
+
+        public bool IsOpen => !string.Equals(Status, "resolved", StringComparison.OrdinalIgnoreCase);
+
+        public string StatusText => IsOpen ? "OFFEN" : "ERLEDIGT";
+        public string StatusColor => IsOpen ? "#FB7185" : "#34D399";
+
+        public string Target => string.IsNullOrWhiteSpace(TargetUsername)
+            ? (TargetName ?? "?")
+            : TargetName + "  (" + TargetUsername + ")";
+
+        public string TimeText => DateTime.TryParse(CreatedAt, out DateTime parsed)
+            ? parsed.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+            : "-";
     }
 
     public sealed class PerformanceCounterWrapper

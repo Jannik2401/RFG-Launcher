@@ -3,3 +3,10 @@ obj/
 .vs/
 *.user
 *.suo
+node_modules/
+
+# Laufzeitdaten des Account-Servers (enthalten Passwort-Hashes)
+users.json
+news.json
+game_info.json
+reports.json
