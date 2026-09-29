@@ -30,6 +30,11 @@
         <EventTrigger RoutedEvent="Window.Loaded">
             <BeginStoryboard x:Name="BackdropStoryboard">
                 <Storyboard>
+                    <!-- the backdrop itself fades in as soon as the window opens -->
+                    <DoubleAnimation Storyboard.TargetName="Backdrop"
+                                     Storyboard.TargetProperty="Opacity"
+                                     From="0" To="1" Duration="0:0:0.7" BeginTime="0:0:0" />
+
                     <DoubleAnimation Storyboard.TargetName="AuroraCyanMove" Storyboard.TargetProperty="X"
                                      From="0" To="150" Duration="0:0:17" BeginTime="0:0:0"
                                      AutoReverse="True" RepeatBehavior="Forever" />
@@ -86,7 +91,7 @@
              TITLE BAR  (top 48px is a native caption region: drag, snap,
              double-click maximize all work; only the buttons below opt out)
              ============================================================ -->
-        <Grid Grid.Row="0" Background="{StaticResource ChromeBackground}">
+        <Grid x:Name="TitleBarRoot" Grid.Row="0" Background="{StaticResource ChromeBackground}" Opacity="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -140,7 +145,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- SIDEBAR -->
-            <Border Grid.Column="0" Background="{StaticResource ChromeBackground}" BorderBrush="{StaticResource BorderSoft}" BorderThickness="0,1,1,0">
+            <Border x:Name="SidebarRoot" Grid.Column="0" Background="{StaticResource ChromeBackground}" BorderBrush="{StaticResource BorderSoft}" BorderThickness="0,1,1,0" Opacity="0">
                 <Grid Margin="16,18,16,16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -339,7 +344,7 @@
                      "breathing" pass. Everything is non-interactive and
                      sits behind the cards, so legibility is untouched.
                      ============================================================ -->
-                <Grid x:Name="Backdrop" Background="{StaticResource ContentBackground}" IsHitTestVisible="False">
+                <Grid x:Name="Backdrop" Background="{StaticResource ContentBackground}" IsHitTestVisible="False" Opacity="0">
 
                     <Ellipse x:Name="AuroraCyanBlob" Width="760" Height="760"
                              HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -404,16 +409,24 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="0,0,0,26">
-                            <Image Source="pack://application:,,,/Assets/logo.png"
+                            <Image x:Name="HeroLogoImage"
+                                   Source="pack://application:,,,/Assets/logo.png"
                                    Height="92" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,20"
+                                   Opacity="0" RenderTransformOrigin="0.5,0.5"
                                    AutomationProperties.Name="RFG Logo">
                                 <Image.Effect>
                                     <DropShadowEffect Color="#22D3EE" BlurRadius="34" ShadowDepth="0" Opacity="0.45" />
                                 </Image.Effect>
+                                <Image.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform x:Name="HeroLogoScale" ScaleX="0.86" ScaleY="0.86" />
+                                        <TranslateTransform x:Name="HeroLogoSlide" Y="46" />
+                                    </TransformGroup>
+                                </Image.RenderTransform>
                             </Image>
-                            <TextBlock Text="Realistic Funfair Games" Style="{StaticResource Text.Display}" />
-                            <TextBlock Text="Kirmes Beta Launcher  ·  Installation, Zugriff und Spielstart an einem Ort"
-                                       Style="{StaticResource Text.Body}" Margin="0,7,0,0" />
+                            <TextBlock x:Name="HeroTitleText" Text="Realistic Funfair Games" Style="{StaticResource Text.Display}" Opacity="0" />
+                            <TextBlock x:Name="HeroSubtitleText" Text="Kirmes Beta Launcher  ·  Installation, Zugriff und Spielstart an einem Ort"
+                                       Style="{StaticResource Text.Body}" Margin="0,7,0,0" Opacity="0" />
                         </StackPanel>
 
                         <StackPanel Grid.Row="1" VerticalAlignment="Center" MaxWidth="620" HorizontalAlignment="Stretch">
@@ -428,7 +441,7 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0" Style="{StaticResource Card}" Padding="16">
+                                <Border x:Name="StatTileVersion" Grid.Column="0" Style="{StaticResource Card}" Padding="16" Opacity="0">
                                     <StackPanel>
                                         <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource GhostSurface}" HorizontalAlignment="Left">
                                             <Path Style="{StaticResource Icon}" Data="M4.8,2.6 L11.2,2.6 L12.6,4 L12.6,13.4 L3.4,13.4 L3.4,3.6 L4.8,3.6 Z" Width="16" Height="16" />
@@ -438,7 +451,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="2" Style="{StaticResource Card}" Padding="16">
+                                <Border x:Name="StatTileStatus" Grid.Column="2" Style="{StaticResource Card}" Padding="16" Opacity="0">
                                     <StackPanel>
                                         <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource GhostSurface}" HorizontalAlignment="Left">
                                             <Path Style="{StaticResource Icon}" Data="M8,1.8 A6.2,6.2 0 1 1 8,14.2 A6.2,6.2 0 1 1 8,1.8 Z M5.2,8.1 L7.1,10 L10.9,6.1" Width="16" Height="16" />
@@ -448,7 +461,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="4" Style="{StaticResource Card}" Padding="16">
+                                <Border x:Name="StatTileBeta" Grid.Column="4" Style="{StaticResource Card}" Padding="16" Opacity="0">
                                     <StackPanel>
                                         <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource GhostSurface}" HorizontalAlignment="Left">
                                             <Path Style="{StaticResource Icon}" Data="M8,1.8 L13.4,3.9 L13.4,8 C13.4,11.4 8,14.2 8,14.2 C8,14.2 2.6,11.4 2.6,8 L2.6,3.9 Z M5.9,8.1 L7.4,9.7 L10.3,6.5" Width="16" Height="16" />
@@ -460,7 +473,7 @@
                             </Grid>
 
                             <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}" Click="StartButton_Click"
-                                    Height="54" FontSize="15" IsEnabled="False" Margin="0,22,0,0"
+                                    Height="54" FontSize="15" IsEnabled="False" Margin="0,22,0,0" Opacity="0"
                                     ToolTip="Startet das installierte Spiel">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="M2,1 L16,8 L2,15 Z" Fill="#FFFFFF" Width="14" Height="14"

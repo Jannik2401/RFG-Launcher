@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace BetaLauncher;
@@ -97,6 +98,92 @@ public partial class MainWindow : Window
         {
             StatusText.Text = "Launcher-Fehler: " + ex.Message;
         }
+        finally
+        {
+            // Everything is loaded - fly the interface in.
+            PlayIntroAnimation();
+        }
+    }
+
+    /// <summary>
+    /// Entrance choreography. The backdrop already faded in via the
+    /// Window.Loaded trigger; this runs once the async startup work
+    /// (version check, game check, auto-login) has finished, so the logo
+    /// drops in only when there is something meaningful to show.
+    /// </summary>
+    private void PlayIntroAnimation()
+    {
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        // FillBehavior.HoldEnd is required: the XAML starts these elements at
+        // Opacity="0", so letting the animation "stop" would hide them again.
+        void FadeIn(UIElement el, double delay, double duration)
+        {
+            el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = TimeSpan.FromSeconds(duration),
+                BeginTime = TimeSpan.FromSeconds(delay),
+                EasingFunction = ease,
+                FillBehavior = FillBehavior.HoldEnd,
+            });
+        }
+
+        void Slide(TranslateTransform t, DependencyProperty prop, double from, double delay, double duration)
+        {
+            t.BeginAnimation(prop, new DoubleAnimation
+            {
+                From = from,
+                To = 0,
+                Duration = TimeSpan.FromSeconds(duration),
+                BeginTime = TimeSpan.FromSeconds(delay),
+                EasingFunction = ease,
+                FillBehavior = FillBehavior.HoldEnd,
+            });
+        }
+
+        // title bar drops in
+        var titleSlide = new TranslateTransform();
+        TitleBarRoot.RenderTransform = titleSlide;
+        FadeIn(TitleBarRoot, 0.00, 0.45);
+        Slide(titleSlide, TranslateTransform.YProperty, -10, 0.00, 0.45);
+
+        // sidebar from the left
+        var sideSlide = new TranslateTransform();
+        SidebarRoot.RenderTransform = sideSlide;
+        FadeIn(SidebarRoot, 0.08, 0.50);
+        Slide(sideSlide, TranslateTransform.XProperty, -24, 0.08, 0.50);
+
+        // the logo: falls in while scaling up
+        FadeIn(HeroLogoImage, 0.16, 0.80);
+        Slide(HeroLogoSlide, TranslateTransform.YProperty, 46, 0.16, 0.80);
+        HeroLogoScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation
+        {
+            From = 0.86,
+            To = 1,
+            Duration = TimeSpan.FromSeconds(0.80),
+            BeginTime = TimeSpan.FromSeconds(0.16),
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd,
+        });
+        HeroLogoScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation
+        {
+            From = 0.86,
+            To = 1,
+            Duration = TimeSpan.FromSeconds(0.80),
+            BeginTime = TimeSpan.FromSeconds(0.16),
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd,
+        });
+
+        // then copy and tiles, staggered
+        FadeIn(HeroTitleText, 0.42, 0.45);
+        FadeIn(HeroSubtitleText, 0.50, 0.45);
+        FadeIn(StatTileVersion, 0.58, 0.45);
+        FadeIn(StatTileStatus, 0.66, 0.45);
+        FadeIn(StatTileBeta, 0.74, 0.45);
+        FadeIn(StartButton, 0.86, 0.50);
     }
 
     private void MainWindow_Closed(object? sender, EventArgs e)
@@ -261,36 +348,68 @@ public partial class MainWindow : Window
         AccountSettingsPanel.Visibility = Visibility.Collapsed;
     }
 
-    private async Task SilentCheckLauncherUpdateAsync()
+    private void SetUpdateStatus(string text, string hexColor)
     {
-        try
+        LauncherUpdateStatusText.Text = text;
+        LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom(hexColor)!;
+    }
+
+    /// <summary>
+    /// Loads version.json. Returns null when the check could not be completed
+    /// at all - callers must NOT report "up to date" in that case, because a
+    /// failed request says nothing about whether an update exists.
+    /// </summary>
+    private async Task<LauncherVersionInfo?> FetchLauncherVersionAsync()
+    {
+        for (int attempt = 1; attempt <= 2; attempt++)
         {
-            using HttpClient client = new();
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("RFG-BetaLauncher-Updater");
-            client.Timeout = TimeSpan.FromSeconds(4);
-            var info = await client.GetFromJsonAsync<LauncherVersionInfo>(LauncherVersionUrl);
-
-            if (info != null && !string.IsNullOrWhiteSpace(info.Version))
+            try
             {
-                Version onlineVersion = ParseVersion(info.Version);
-                Version installedVersion = ParseVersion(CurrentLauncherVersion);
+                using HttpClient client = new();
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("RFG-BetaLauncher-Updater");
+                client.Timeout = TimeSpan.FromSeconds(15);
 
-                if (onlineVersion > installedVersion)
-                {
-                    LauncherUpdateStatusText.Text = $"Neues Update: v{onlineVersion}";
-                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#38BDF8")!;
-                }
-                else
-                {
-                    LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
-                }
+                var info = await client.GetFromJsonAsync<LauncherVersionInfo>(LauncherVersionUrl);
+                if (info != null && !string.IsNullOrWhiteSpace(info.Version))
+                    return info;
+
+                return null;
+            }
+            catch when (attempt < 2)
+            {
+                await Task.Delay(800);
+            }
+            catch (Exception ex)
+            {
+                LastUpdateCheckError = ex.Message;
+                return null;
             }
         }
-        catch 
+
+        return null;
+    }
+
+    private string? LastUpdateCheckError;
+
+    private async Task SilentCheckLauncherUpdateAsync()
+    {
+        var info = await FetchLauncherVersionAsync();
+        if (info == null)
         {
-            LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-            LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
+            SetUpdateStatus("Update-Status unbekannt.", "#6E7E97");
+            return;
+        }
+
+        Version onlineVersion = ParseVersion(info.Version);
+        Version installedVersion = ParseVersion(CurrentLauncherVersion);
+
+        if (onlineVersion > installedVersion)
+        {
+            SetUpdateStatus($"Neues Update: v{onlineVersion}", "#38BDF8");
+        }
+        else
+        {
+            SetUpdateStatus($"Aktuell (v{installedVersion})", "#34D399");
         }
     }
 
@@ -299,36 +418,43 @@ public partial class MainWindow : Window
         CheckLauncherUpdateButton.IsEnabled = false;
         try
         {
-            LauncherUpdateStatusText.Text = "Suche nach Updates...";
-            using HttpClient client = new();
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("RFG-BetaLauncher-Updater");
-            client.Timeout = TimeSpan.FromSeconds(5);
-            var info = await client.GetFromJsonAsync<LauncherVersionInfo>(LauncherVersionUrl);
+            SetUpdateStatus("Suche nach Updates...", "#A2B0C6");
 
-            if (info != null && !string.IsNullOrWhiteSpace(info.Version))
+            var info = await FetchLauncherVersionAsync();
+            if (info == null)
             {
-                Version onlineVersion = ParseVersion(info.Version);
-                Version installedVersion = ParseVersion(CurrentLauncherVersion);
+                SetUpdateStatus("Update-Status unbekannt.", "#6E7E97");
+                MessageBox.Show(
+                    "Der Update-Status konnte nicht abgerufen werden.\n\n" +
+                    "Installierte Version: v" + ParseVersion(CurrentLauncherVersion) + "\n" +
+                    (string.IsNullOrWhiteSpace(LastUpdateCheckError) ? "" : "Fehler: " + LastUpdateCheckError + "\n") +
+                    "\nBitte Internetverbindung prüfen und erneut versuchen.",
+                    "Update-Prüfung fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-                if (onlineVersion > installedVersion)
-                {
-                    LauncherUpdateStatusText.Text = $"Update gefunden: v{onlineVersion}";
-                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#38BDF8")!;
-                    StartAutoUpdater(info.DownloadUrl);
-                }
-                else
-                {
-                    MessageBox.Show($"Du nutzt bereits die neueste Version (v{installedVersion}).", "Aktuell", MessageBoxButton.OK, MessageBoxImage.Information);
-                    LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
-                }
+            Version onlineVersion = ParseVersion(info.Version);
+            Version installedVersion = ParseVersion(CurrentLauncherVersion);
+
+            if (onlineVersion > installedVersion)
+            {
+                SetUpdateStatus($"Update gefunden: v{onlineVersion}", "#38BDF8");
+                StartAutoUpdater(info.DownloadUrl);
+            }
+            else
+            {
+                SetUpdateStatus($"Aktuell (v{installedVersion})", "#34D399");
+                MessageBox.Show(
+                    "Du nutzt bereits die neueste Version.\n\n" +
+                    "Installiert: v" + installedVersion + "\n" +
+                    "Server:     v" + onlineVersion,
+                    "Aktuell", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
+            SetUpdateStatus("Update-Status unbekannt.", "#6E7E97");
             MessageBox.Show("Fehler bei der Update-Prüfung: " + ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
-            LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-            LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
         }
         finally
         {
@@ -363,7 +489,36 @@ public partial class MainWindow : Window
         SettingsPage.Visibility = Visibility.Collapsed;
 
         page.Visibility = Visibility.Visible;
+        AnimatePageIn(page);
         SyncActiveNav(page);
+    }
+
+    /// <summary>Short cross-fade for every page change.</summary>
+    private void AnimatePageIn(UIElement page)
+    {
+        if (page is not FrameworkElement element) return;
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var slide = new TranslateTransform();
+        element.RenderTransform = slide;
+
+        element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = TimeSpan.FromSeconds(0.18),
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd,
+        });
+
+        slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation
+        {
+            From = 10,
+            To = 0,
+            Duration = TimeSpan.FromSeconds(0.18),
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd,
+        });
     }
 
     /// <summary>Highlights the sidebar entry that belongs to the visible page.</summary>
