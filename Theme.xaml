@@ -89,6 +89,41 @@
     </RadialGradientBrush>
 
     <!-- ============================================================
+         ANIMATED BACKDROP
+         Four drifting aurora blobs in the palette colours. They live
+         behind the cards, so text contrast is unaffected.
+         ============================================================ -->
+    <RadialGradientBrush x:Key="AuroraCyan">
+        <GradientStop Color="#7A22D3EE" Offset="0" />
+        <GradientStop Color="#3322D3EE" Offset="0.45" />
+        <GradientStop Color="#0022D3EE" Offset="1" />
+    </RadialGradientBrush>
+
+    <RadialGradientBrush x:Key="AuroraViolet">
+        <GradientStop Color="#6E818CF8" Offset="0" />
+        <GradientStop Color="#2E818CF8" Offset="0.45" />
+        <GradientStop Color="#00818CF8" Offset="1" />
+    </RadialGradientBrush>
+
+    <RadialGradientBrush x:Key="AuroraMagenta">
+        <GradientStop Color="#5CF472B6" Offset="0" />
+        <GradientStop Color="#26F472B6" Offset="0.45" />
+        <GradientStop Color="#00F472B6" Offset="1" />
+    </RadialGradientBrush>
+
+    <RadialGradientBrush x:Key="AuroraBlue">
+        <GradientStop Color="#5C38BDF8" Offset="0" />
+        <GradientStop Color="#2638BDF8" Offset="0.45" />
+        <GradientStop Color="#0038BDF8" Offset="1" />
+    </RadialGradientBrush>
+
+    <!-- soft dark edge so the bright blobs never touch the content -->
+    <RadialGradientBrush x:Key="BackdropVignette" GradientOrigin="0.5,0.45" Center="0.5,0.5" RadiusX="0.78" RadiusY="0.85">
+        <GradientStop Color="#00000000" Offset="0.55" />
+        <GradientStop Color="#99050710" Offset="1" />
+    </RadialGradientBrush>
+
+    <!-- ============================================================
          TYPOGRAPHY
          ============================================================ -->
     <Style x:Key="Text.Display" TargetType="TextBlock">

@@ -19,6 +19,63 @@
         <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
 
+    <!-- ============================================================
+         ANIMATED BACKDROP DRIVERS
+         Each blob drifts on its own prime-ish period (17/19/23/29 s) so the
+         motion never visibly repeats, plus a slower opacity "breathing"
+         pass. Durations are deliberately coprime: the whole cycle only
+         repeats after hours.
+         ============================================================ -->
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard x:Name="BackdropStoryboard">
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="AuroraCyanMove" Storyboard.TargetProperty="X"
+                                     From="0" To="150" Duration="0:0:17" BeginTime="0:0:0"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraCyanMove" Storyboard.TargetProperty="Y"
+                                     From="0" To="105" Duration="0:0:23" BeginTime="0:0:0"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+
+                    <DoubleAnimation Storyboard.TargetName="AuroraVioletMove" Storyboard.TargetProperty="X"
+                                     From="0" To="-175" Duration="0:0:19" BeginTime="0:0:1.5"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraVioletMove" Storyboard.TargetProperty="Y"
+                                     From="0" To="120" Duration="0:0:29" BeginTime="0:0:1.5"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+
+                    <DoubleAnimation Storyboard.TargetName="AuroraMagentaMove" Storyboard.TargetProperty="X"
+                                     From="-90" To="110" Duration="0:0:29" BeginTime="0:0:3"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraMagentaMove" Storyboard.TargetProperty="Y"
+                                     From="0" To="150" Duration="0:0:19" BeginTime="0:0:3"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+
+                    <DoubleAnimation Storyboard.TargetName="AuroraBlueMove" Storyboard.TargetProperty="X"
+                                     From="-70" To="130" Duration="0:0:23" BeginTime="0:0:4.5"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraBlueMove" Storyboard.TargetProperty="Y"
+                                     From="0" To="-95" Duration="0:0:17" BeginTime="0:0:4.5"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+
+                    <!-- breathing -->
+                    <DoubleAnimation Storyboard.TargetName="AuroraCyanBlob" Storyboard.TargetProperty="Opacity"
+                                     From="0.55" To="1" Duration="0:0:13" BeginTime="0:0:0"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraVioletBlob" Storyboard.TargetProperty="Opacity"
+                                     From="0.6" To="1" Duration="0:0:17" BeginTime="0:0:2"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraMagentaBlob" Storyboard.TargetProperty="Opacity"
+                                     From="0.3" To="0.8" Duration="0:0:19" BeginTime="0:0:4"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                    <DoubleAnimation Storyboard.TargetName="AuroraBlueBlob" Storyboard.TargetProperty="Opacity"
+                                     From="0.25" To="0.7" Duration="0:0:23" BeginTime="0:0:6"
+                                     AutoReverse="True" RepeatBehavior="Forever" />
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />
@@ -37,15 +94,9 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource AccentGradient}" VerticalAlignment="Center">
-                    <TextBlock Text="K"
-                               Foreground="#FFFFFF"
-                               FontWeight="Bold"
-                               FontSize="15"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Margin="0,-1,0,0" />
-                </Border>
+                <Image Source="pack://application:,,,/Assets/logo.png"
+                       Height="26" Stretch="Uniform" VerticalAlignment="Center"
+                       AutomationProperties.Name="RFG Logo" />
                 <TextBlock Text="RFG" Margin="11,0,0,0" FontSize="14" FontWeight="Bold"
                            Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
                 <Border Width="1" Height="14" Margin="9,0,9,0" Background="{StaticResource BorderStrong}" VerticalAlignment="Center" />
@@ -281,11 +332,66 @@
 
             <!-- CONTENT -->
             <Grid Grid.Column="1" ClipToBounds="True">
-                <Grid Background="{StaticResource ContentBackground}">
-                    <Ellipse Width="640" Height="640" HorizontalAlignment="Right" VerticalAlignment="Top"
-                             Margin="0,-240,-220,0" Fill="{StaticResource GlowCyan}" IsHitTestVisible="False" />
-                    <Ellipse Width="540" Height="540" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                             Margin="-200,0,0,-220" Fill="{StaticResource GlowViolet}" IsHitTestVisible="False" />
+
+                <!-- ===== ANIMATED BACKDROP ==================================
+                     Four aurora blobs drift on independent loops (see the
+                     storyboards in Window.Triggers) plus a slow opacity
+                     "breathing" pass. Everything is non-interactive and
+                     sits behind the cards, so legibility is untouched.
+                     ============================================================ -->
+                <Grid x:Name="Backdrop" Background="{StaticResource ContentBackground}" IsHitTestVisible="False">
+
+                    <Ellipse x:Name="AuroraCyanBlob" Width="760" Height="760"
+                             HorizontalAlignment="Right" VerticalAlignment="Top"
+                             Margin="0,-300,-260,0" Fill="{StaticResource AuroraCyan}"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.CacheMode>
+                            <BitmapCache RenderAtScale="1" />
+                        </Ellipse.CacheMode>
+                        <Ellipse.RenderTransform>
+                            <TranslateTransform x:Name="AuroraCyanMove" X="0" Y="0" />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+
+                    <Ellipse x:Name="AuroraVioletBlob" Width="700" Height="700"
+                             HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                             Margin="-250,0,0,-280" Fill="{StaticResource AuroraViolet}"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.CacheMode>
+                            <BitmapCache RenderAtScale="1" />
+                        </Ellipse.CacheMode>
+                        <Ellipse.RenderTransform>
+                            <TranslateTransform x:Name="AuroraVioletMove" X="0" Y="0" />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+
+                    <Ellipse x:Name="AuroraMagentaBlob" Width="620" Height="620"
+                             HorizontalAlignment="Center" VerticalAlignment="Top"
+                             Margin="0,-380,0,0" Fill="{StaticResource AuroraMagenta}"
+                             Opacity="0.75"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.CacheMode>
+                            <BitmapCache RenderAtScale="1" />
+                        </Ellipse.CacheMode>
+                        <Ellipse.RenderTransform>
+                            <TranslateTransform x:Name="AuroraMagentaMove" X="0" Y="0" />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+
+                    <Ellipse x:Name="AuroraBlueBlob" Width="900" Height="900"
+                             HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                             Margin="0,0,0,-420" Fill="{StaticResource AuroraBlue}"
+                             Opacity="0.6"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.CacheMode>
+                            <BitmapCache RenderAtScale="1" />
+                        </Ellipse.CacheMode>
+                        <Ellipse.RenderTransform>
+                            <TranslateTransform x:Name="AuroraBlueMove" X="0" Y="0" />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+
+                    <Rectangle Fill="{StaticResource BackdropVignette}" />
                 </Grid>
 
                 <Grid Margin="36,28,36,28">
@@ -298,6 +404,13 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="0,0,0,26">
+                            <Image Source="pack://application:,,,/Assets/logo.png"
+                                   Height="92" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,20"
+                                   AutomationProperties.Name="RFG Logo">
+                                <Image.Effect>
+                                    <DropShadowEffect Color="#22D3EE" BlurRadius="34" ShadowDepth="0" Opacity="0.45" />
+                                </Image.Effect>
+                            </Image>
                             <TextBlock Text="Realistic Funfair Games" Style="{StaticResource Text.Display}" />
                             <TextBlock Text="Kirmes Beta Launcher  ·  Installation, Zugriff und Spielstart an einem Ort"
                                        Style="{StaticResource Text.Body}" Margin="0,7,0,0" />
