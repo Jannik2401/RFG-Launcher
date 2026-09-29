@@ -393,7 +393,7 @@
          ============================================================ -->
     <Style x:Key="ModernTextBox" TargetType="TextBox">
         <Setter Property="Background" Value="{StaticResource InputBg}" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{StaticResource Accent}" />
@@ -412,8 +412,9 @@
                             CornerRadius="10"
                             SnapsToDevicePixels="True">
                         <ScrollViewer x:Name="PART_ContentHost"
-                                      Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center"
+                                      Padding="{TemplateBinding Padding}"
+                                      Height="{TemplateBinding ActualHeight}"
+                                      SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                       Focusable="False"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Hidden" />
@@ -433,7 +434,7 @@
 
     <Style x:Key="ModernPasswordBox" TargetType="PasswordBox">
         <Setter Property="Background" Value="{StaticResource InputBg}" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{StaticResource Accent}" />
@@ -452,8 +453,9 @@
                             CornerRadius="10"
                             SnapsToDevicePixels="True">
                         <ScrollViewer x:Name="PART_ContentHost"
-                                      Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center"
+                                      Padding="{TemplateBinding Padding}"
+                                      Height="{TemplateBinding ActualHeight}"
+                                      SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                       Focusable="False"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Hidden" />
