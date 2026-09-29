@@ -350,7 +350,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(LoggedInUsername)) return;
 
         InlineTxtLoginUsername.Text = LoggedInUsername;
-        InlineTxtDisplayName.Text = CornerUsernameText.Text;
+        InlineTxtDisplayName.Text = string.IsNullOrEmpty(CurrentDisplayName) ? LoggedInUsername : CurrentDisplayName;
         _inlineRawPassword = LoggedInPassword ?? string.Empty;
         InlinePwdBox.Password = _inlineRawPassword;
         _inlinePasswordVisible = false;
@@ -1042,7 +1042,7 @@ public partial class MainWindow : Window
                 MessageBox.Show("Anzeigename erfolgreich geändert!", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
                 UpdateAccountUIVisibility();
                 WriteGameIdentity();
-                NewDisplayNameTextBox.Clear();
+                NewDisplayNameTextBox.Text = LoggedInDisplayName;
             }
             else
             {
