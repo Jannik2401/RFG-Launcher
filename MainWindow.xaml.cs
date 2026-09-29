@@ -71,6 +71,7 @@ public partial class MainWindow : Window
 
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
+        StateChanged += (_, _) => UpdateCaptionButtons();
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -84,6 +85,8 @@ public partial class MainWindow : Window
             StartPerformanceMonitor();
 
             LauncherVersionText.Text = $"Version: {CurrentLauncherVersion}";
+            GameFolderText.Text = GameDirectory;
+            UpdateCaptionButtons();
 
             await SilentCheckLauncherUpdateAsync();
             await CheckForUpdatesAsync();
@@ -132,6 +135,10 @@ public partial class MainWindow : Window
             CornerUsernameText.Text = LoggedInUsername;
             CornerRoleText.Text = $"Rolle: {LoggedInRole?.ToUpper()}";
 
+            string initial = string.IsNullOrEmpty(LoggedInUsername) ? "?" : LoggedInUsername[..1].ToUpperInvariant();
+            CornerAvatarText.Text = initial;
+            CornerAvatarBox.Background = (Brush)FindResource(LoggedInRole == "admin" ? "AdminGradient" : "AccentGradient");
+
             AccountLoginPanel.Visibility = Visibility.Collapsed;
             AccountProfilePanel.Visibility = Visibility.Visible;
             ProfileUsernameDisplay.Text = LoggedInUsername;
@@ -156,7 +163,7 @@ public partial class MainWindow : Window
         LoggedInRole = null;
         HasBetaAccess = false;
 
-        AdminMenuButton.Visibility = Visibility.Collapsed;
+        NavAdminButton.Visibility = Visibility.Collapsed;
 
         UpdateHomeInformation();
         UpdateAccountUIVisibility();
@@ -189,7 +196,7 @@ public partial class MainWindow : Window
             AccountPasswordBox.Password = _rawPassword;
             AccountPasswordVisibleTextBox.Visibility = Visibility.Collapsed;
             AccountPasswordBox.Visibility = Visibility.Visible;
-            TogglePasswordBtn.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#94A3B8")!;
+            TogglePasswordBtn.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#A2B0C6")!;
         }
     }
 
@@ -276,14 +283,14 @@ public partial class MainWindow : Window
                 else
                 {
                     LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#10B981")!;
+                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
                 }
             }
         }
         catch 
         {
             LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-            LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#10B981")!;
+            LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
         }
     }
 
@@ -313,7 +320,7 @@ public partial class MainWindow : Window
                 {
                     MessageBox.Show($"Du nutzt bereits die neueste Version (v{installedVersion}).", "Aktuell", MessageBoxButton.OK, MessageBoxImage.Information);
                     LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#10B981")!;
+                    LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
                 }
             }
         }
@@ -321,7 +328,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show("Fehler bei der Update-Prüfung: " + ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
             LauncherUpdateStatusText.Text = "Launcher ist aktuell.";
-            LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#10B981")!;
+            LauncherUpdateStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
         }
         finally
         {
@@ -356,6 +363,43 @@ public partial class MainWindow : Window
         SettingsPage.Visibility = Visibility.Collapsed;
 
         page.Visibility = Visibility.Visible;
+        SyncActiveNav(page);
+    }
+
+    /// <summary>Highlights the sidebar entry that belongs to the visible page.</summary>
+    private void SyncActiveNav(UIElement page)
+    {
+        var entries = new (UIElement Page, Button Button, FrameworkElement Indicator)[]
+        {
+            (HomePage, NavHomeButton, NavHomeIndicator),
+            (UpdatesPage, NavUpdatesButton, NavUpdatesIndicator),
+            (AccountPage, NavAccountButton, NavAccountIndicator),
+            (ChangePasswordPage, NavAccountButton, NavAccountIndicator),
+            (AdminPage, NavAdminButton, NavAdminIndicator),
+            (PerformancePage, NavPerformanceButton, NavPerformanceIndicator),
+            (CreditsPage, NavCreditsButton, NavCreditsIndicator),
+            (SettingsPage, NavSettingsButton, NavSettingsIndicator),
+        };
+
+        foreach (var (entryPage, button, indicator) in entries)
+        {
+            bool isActive = ReferenceEquals(entryPage, page);
+            indicator.Opacity = isActive ? 1d : 0d;
+            button.Background = isActive ? (Brush)FindResource("NavActiveBg") : Brushes.Transparent;
+            button.Foreground = isActive ? (Brush)FindResource("TextPrimary") : (Brush)FindResource("TextSecondary");
+        }
+    }
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void MaximizeButton_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void UpdateCaptionButtons()
+    {
+        bool isMaximized = WindowState == WindowState.Maximized;
+        MaximizeGlyph.Visibility = isMaximized ? Visibility.Collapsed : Visibility.Visible;
+        RestoreGlyph.Visibility = isMaximized ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void HomeButton_Click(object sender, RoutedEventArgs e) => ShowPage(HomePage);
@@ -368,6 +412,25 @@ public partial class MainWindow : Window
     private void ExitButton_Click(object sender, RoutedEventArgs e) => Close();
     private void GoToChangePassword_Click(object sender, RoutedEventArgs e) => ShowPage(ChangePasswordPage);
 
+    private string LauncherDataDirectory => Path.GetDirectoryName(GameDirectory) ?? GameDirectory;
+
+    private void OpenGameFolderButton_Click(object sender, RoutedEventArgs e) => OpenFolder(GameDirectory);
+
+    private void OpenLogFolderButton_Click(object sender, RoutedEventArgs e) => OpenFolder(LauncherDataDirectory);
+
+    private void OpenFolder(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Ordner konnte nicht geöffnet werden:\n" + ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private void UpdateHomeInformation()
     {
         string localVersion = GetLocalVersion();
@@ -376,28 +439,28 @@ public partial class MainWindow : Window
         if (IsGameInstalled())
         {
             HomeStatusText.Text = "INSTALLIERT";
-            HomeStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#10B981")!;
+            HomeStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
         }
         else
         {
             HomeStatusText.Text = "NICHT INSTALLIERT";
-            HomeStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#E11D48")!;
+            HomeStatusText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#FB7185")!;
         }
 
         if (string.IsNullOrEmpty(LoggedInUsername))
         {
             HomeBetaAccessText.Text = "NICHT EINGELOGGT";
-            HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#E11D48")!;
+            HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#FB7185")!;
         }
         else if (HasBetaAccess)
         {
             HomeBetaAccessText.Text = "ZUGRIFF GEWÄHRT";
-            HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#10B981")!;
+            HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
         }
         else
         {
             HomeBetaAccessText.Text = "ZUGRIFF VERWEIGERT";
-            HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#E11D48")!;
+            HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#FB7185")!;
         }
 
         StartButton.IsEnabled = IsGameInstalled() && HasBetaAccess;
@@ -435,7 +498,7 @@ public partial class MainWindow : Window
 
                     if (statusChanged)
                     {
-                        AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+                        NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                         UpdateHomeInformation();
                         UpdateAccountUIVisibility();
                     }
@@ -643,7 +706,7 @@ public partial class MainWindow : Window
                     LoggedInRole = result.Role ?? "user";
                     HasBetaAccess = result.HasBetaAccess;
 
-                    AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+                    NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                     UpdateHomeInformation();
                     UpdateAccountUIVisibility();
                     StartStatusCheck();
@@ -702,7 +765,7 @@ public partial class MainWindow : Window
                 AccountPasswordVisibleTextBox.Clear();
                 _rawPassword = string.Empty;
 
-                AdminMenuButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+                NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
                 UpdateHomeInformation();
                 UpdateAccountUIVisibility();
                 StartStatusCheck();
@@ -949,15 +1012,15 @@ public partial class MainWindow : Window
             PerformanceTimer.Tick += (s, e) =>
             {
                 if (PerformanceCounter == null) return;
-                CpuText.Text = $"CPU: {PerformanceCounter.GetCpuUsage():0}%";
-                RamText.Text = $"RAM: {PerformanceCounter.GetRamUsage():0}%";
+                CpuText.Text = $"{PerformanceCounter.GetCpuUsage():0}%";
+                RamText.Text = $"{PerformanceCounter.GetRamUsage():0}%";
             };
             PerformanceTimer.Start();
         }
         catch
         {
-            CpuText.Text = "CPU: --";
-            RamText.Text = "RAM: --";
+            CpuText.Text = "--";
+            RamText.Text = "--";
         }
     }
 
@@ -1057,10 +1120,10 @@ public partial class MainWindow : Window
         public bool MustChangePassword { get; set; }
 
         public string BetaText => HasBetaAccess ? "Beta: Aktiv" : "Beta: Inaktiv";
-        public string BetaColor => HasBetaAccess ? "#10B981" : "#E11D48";
+        public string BetaColor => HasBetaAccess ? "#34D399" : "#FB7185";
 
         public string LockText => IsLocked ? "Gesperrt: Ja" : "Gesperrt: Nein";
-        public string LockColor => IsLocked ? "#E11D48" : "#10B981";
+        public string LockColor => IsLocked ? "#FB7185" : "#34D399";
     }
 
     public sealed class PerformanceCounterWrapper

@@ -26,6 +26,8 @@ public partial class UpdateWindow : Window
         await PerformUpdateAsync();
     }
 
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
     private async Task PerformUpdateAsync()
     {
         try
