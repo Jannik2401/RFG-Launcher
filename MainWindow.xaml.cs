@@ -30,6 +30,12 @@ public partial class MainWindow : Window
     private const string AccountServerUrl = "http://node1.waifly.com:25433";
     private const string GameLaunchToken = "--token=RFG_SECURE_LAUNCH_98765";
 
+    /// <summary>Release-Tag der öffentlichen Version. Ohne Account nutzbar.</summary>
+    private const string PublicReleaseTag = "V1";
+
+    /// <summary>Release-Tag des Beta-Launchers. Wird bei jedem Push automatisch neu gebaut.</summary>
+    private const string BetaReleaseTag = "latest";
+
     private static readonly string[] ProtectedAdminUsernames = { "admin" };
 
     private const string DiscordUrl = "https://discord.gg/qaxg7UdafU";
@@ -57,6 +63,12 @@ public partial class MainWindow : Window
     private string? LoggedInRole;
     private string? LoggedInDisplayName;
     private bool HasBetaAccess;
+
+    /// <summary>
+    /// Zugang zum Beta-Panel und damit zum Spiel. Gesetzt das hasBetaAccess-Flag
+    /// aus dem Account; Admins haben immer Zugriff.
+    /// </summary>
+    private bool HasBetaPanelAccess => HasBetaAccess || LoggedInRole == "admin";
 
     private bool _isPasswordVisible;
     private string _rawPassword = string.Empty;
@@ -91,10 +103,10 @@ public partial class MainWindow : Window
             GameFolderText.Text = GameDirectory;
             UpdateCaptionButtons();
 
-            await SilentCheckLauncherUpdateAsync();
-            await CheckForUpdatesAsync();
+            await LoadPublicReleaseAsync();
             await TryAutoLoginAsync();
             UpdateAccountUIVisibility();
+            await SilentCheckLauncherUpdateAsync();
         }
         catch (Exception ex)
         {
@@ -218,6 +230,7 @@ public partial class MainWindow : Window
 
         AccountMenuButton.Visibility = isLoggedIn ? Visibility.Collapsed : Visibility.Visible;
         UserProfileCornerBox.Visibility = isLoggedIn ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNavVisibility();
 
         if (isLoggedIn)
         {
@@ -244,6 +257,16 @@ public partial class MainWindow : Window
 
     private string CurrentDisplayName =>
         string.IsNullOrWhiteSpace(LoggedInDisplayName) ? LoggedInUsername ?? string.Empty : LoggedInDisplayName!;
+
+    /// <summary>Blendet Admin- und Beta-Eintrag in der Seitenleiste ein oder aus.</summary>
+    private void UpdateNavVisibility()
+    {
+        NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+        NavBetaButton.Visibility = HasBetaPanelAccess ? Visibility.Visible : Visibility.Collapsed;
+
+        if (NavBetaButton.Visibility != Visibility.Visible && BetaPage.Visibility == Visibility.Visible)
+            ShowPage(HomePage);
+    }
 
     private void PrefillDisplayNameBox()
     {
@@ -307,8 +330,6 @@ public partial class MainWindow : Window
         LoggedInRole = null;
         LoggedInDisplayName = null;
         HasBetaAccess = false;
-
-        NavAdminButton.Visibility = Visibility.Collapsed;
 
         UpdateHomeInformation();
         UpdateAccountUIVisibility();
@@ -451,6 +472,14 @@ public partial class MainWindow : Window
 
     private async Task SilentCheckLauncherUpdateAsync()
     {
+        // Der Selbst-Update zieht immer aus dem "latest"-Release, also der Beta.
+        // Ohne Beta-Zugriff darf die oeffentliche Version nicht in die Beta nachziehen.
+        if (!HasBetaPanelAccess)
+        {
+            SetUpdateStatus("Beta-Update nur mit Beta-Zugriff.", "#6E7E97");
+            return;
+        }
+
         var info = await FetchLauncherVersionAsync();
         if (info == null)
         {
@@ -473,6 +502,16 @@ public partial class MainWindow : Window
 
     private async void CheckLauncherUpdateButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!HasBetaPanelAccess)
+        {
+            SetUpdateStatus("Beta-Update nur mit Beta-Zugriff.", "#6E7E97");
+            MessageBox.Show(
+                "Der Beta-Launcher aktualisiert sich nur mit Beta-Zugriff.\n\n" +
+                "Die oeffentliche Version wird manuell ueber das Release V1 verteilt.",
+                "Kein Beta-Zugriff", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         CheckLauncherUpdateButton.IsEnabled = false;
         try
         {
@@ -538,7 +577,7 @@ public partial class MainWindow : Window
     private void ShowPage(UIElement page)
     {
         HomePage.Visibility = Visibility.Collapsed;
-        UpdatesPage.Visibility = Visibility.Collapsed;
+        BetaPage.Visibility = Visibility.Collapsed;
         AccountPage.Visibility = Visibility.Collapsed;
         ChangePasswordPage.Visibility = Visibility.Collapsed;
         AdminPage.Visibility = Visibility.Collapsed;
@@ -585,7 +624,7 @@ public partial class MainWindow : Window
         var entries = new (UIElement Page, Button Button, FrameworkElement Indicator)[]
         {
             (HomePage, NavHomeButton, NavHomeIndicator),
-            (UpdatesPage, NavUpdatesButton, NavUpdatesIndicator),
+            (BetaPage, NavBetaButton, NavBetaIndicator),
             (AccountPage, NavAccountButton, NavAccountIndicator),
             (ChangePasswordPage, NavAccountButton, NavAccountIndicator),
             (AdminPage, NavAdminButton, NavAdminIndicator),
@@ -616,7 +655,34 @@ public partial class MainWindow : Window
     }
 
     private void HomeButton_Click(object sender, RoutedEventArgs e) => ShowPage(HomePage);
-    private void UpdatesButton_Click(object sender, RoutedEventArgs e) => ShowPage(UpdatesPage);
+
+    private void BetaButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!HasBetaPanelAccess)
+        {
+            ShowPage(AccountPage);
+            MessageBox.Show(
+                "Das Beta-Panel ist nur mit Beta-Zugriff verfügbar.\n\n" +
+                "Bitte mit einem Account anmelden, der über Beta-Zugriff verfügt.",
+                "Kein Beta-Zugriff", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        ShowPage(BetaPage);
+        _ = LoadBetaPanelAsync();
+    }
+
+    private async void BetaRefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        BetaRefreshButton.IsEnabled = false;
+        try { await LoadBetaPanelAsync(); }
+        finally { BetaRefreshButton.IsEnabled = true; }
+    }
+
+    private void DownloadRelease_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.Tag is string url && !string.IsNullOrWhiteSpace(url)) OpenUrl(url);
+    }
     private void AccountButton_Click(object sender, RoutedEventArgs e) => ShowPage(AccountPage);
     private void SettingsButton_Click(object sender, RoutedEventArgs e) => ShowPage(SettingsPage);
     private void AdminButton_Click(object sender, RoutedEventArgs e) { ShowPage(AdminPage); _ = LoadAdminUserListAsync(); }
@@ -665,9 +731,9 @@ public partial class MainWindow : Window
             HomeBetaAccessText.Text = "NICHT EINGELOGGT";
             HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#FB7185")!;
         }
-        else if (HasBetaAccess)
+        else if (HasBetaPanelAccess)
         {
-            HomeBetaAccessText.Text = "ZUGRIFF GEWÄHRT";
+            HomeBetaAccessText.Text = LoggedInRole == "admin" ? "ADMIN" : "ZUGRIFF GEWÄHRT";
             HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#34D399")!;
         }
         else
@@ -676,7 +742,7 @@ public partial class MainWindow : Window
             HomeBetaAccessText.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#FB7185")!;
         }
 
-        StartButton.IsEnabled = IsGameInstalled() && HasBetaAccess;
+        StartButton.IsEnabled = IsGameInstalled() && HasBetaPanelAccess;
     }
 
     private void StartStatusCheck()
@@ -702,7 +768,7 @@ public partial class MainWindow : Window
                     if (!string.IsNullOrWhiteSpace(result.DisplayName)) LoggedInDisplayName = result.DisplayName;
 
                     // Wenn der Account gesperrt wurde oder der Beta-Zugriff entzogen wurde -> Nur das Spiel schließen (KEIN Logout!)
-                    if (result.IsLocked || !HasBetaAccess)
+                    if (result.IsLocked || !HasBetaPanelAccess)
                     {
                         foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(GameExeName)))
                         {
@@ -712,7 +778,7 @@ public partial class MainWindow : Window
 
                     if (statusChanged)
                     {
-                        NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+                        UpdateNavVisibility();
                         UpdateHomeInformation();
                         UpdateAccountUIVisibility();
                     }
@@ -742,7 +808,7 @@ public partial class MainWindow : Window
                 if (result != null && result.Success)
                 {
                     HasBetaAccess = result.HasBetaAccess;
-                    if (result.IsLocked || !HasBetaAccess)
+                    if (result.IsLocked || !HasBetaPanelAccess)
                     {
                         MessageBox.Show("Kein aktiver Beta-Zugriff oder Account gesperrt.", "Zugriff verweigert", MessageBoxButton.OK, MessageBoxImage.Stop);
                         UpdateHomeInformation();
@@ -752,7 +818,7 @@ public partial class MainWindow : Window
             }
             catch { }
 
-            if (!HasBetaAccess)
+            if (!HasBetaPanelAccess)
             {
                 MessageBox.Show("Du hast keinen Beta-Zugriff.", "Zugriff verweigert", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -794,8 +860,104 @@ public partial class MainWindow : Window
 
     private async void UpdateButton_Click(object sender, RoutedEventArgs e) => await DownloadAndInstallLatestAsync();
 
+    /// <summary>Lädt ein Release anhand seines Tags. Gibt null zurück, wenn es nicht erreichbar ist.</summary>
+    private async Task<GitHubRelease?> FetchReleaseByTagAsync(string tag)
+    {
+        try
+        {
+            using HttpResponseMessage response = await Http.GetAsync(
+                $"https://api.github.com/repos/{GitHubOwner}/{GitHubRepo}/releases/tags/{tag}");
+
+            if (!response.IsSuccessStatusCode) return null;
+
+            string json = await response.Content.ReadAsStringAsync();
+            var release = JsonSerializer.Deserialize<GitHubRelease>(
+                json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            return release is { Draft: false } ? release : null;
+        }
+        catch { return null; }
+    }
+
+    private static string? ExtractVersion(string? releaseName, string? fallbackTag)
+    {
+        if (releaseName != null)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(releaseName, @"\d+(\.\d+)+");
+            if (match.Success) return match.Value;
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackTag) ? null : fallbackTag;
+    }
+
+    private static GitHubAsset? FindLauncherAsset(GitHubRelease? release) =>
+        release?.Assets.FirstOrDefault(a =>
+            !string.IsNullOrWhiteSpace(a.Name) &&
+            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+
+    private async Task LoadBetaPanelAsync()
+    {
+        await LoadBetaLauncherReleaseAsync();
+        await CheckForUpdatesAsync();
+    }
+
+    /// <summary>Beta-Launcher-Version und Release-Notes live aus dem "latest"-Release.</summary>
+    private async Task LoadBetaLauncherReleaseAsync()
+    {
+        BetaLauncherStatusText.Text = "wird geladen...";
+
+        var release = await FetchReleaseByTagAsync(BetaReleaseTag);
+        if (release == null)
+        {
+            BetaLauncherVersionText.Text = "Beta-Launcher: nicht erreichbar";
+            BetaReleaseNotesText.Text = "Release-Notes konnten nicht geladen werden.";
+            BetaLauncherStatusText.Text = "";
+            return;
+        }
+
+        string? version = ExtractVersion(release.Name, release.TagName);
+        BetaLauncherVersionText.Text = "Beta-Launcher: " + (version != null ? "v" + version : "unbekannt");
+        BetaReleaseNotesText.Text = string.IsNullOrWhiteSpace(release.Body)
+            ? "Keine Release-Notes vorhanden."
+            : release.Body!;
+
+        var asset = FindLauncherAsset(release);
+        BetaDownloadLauncherButton.IsEnabled = asset != null;
+        BetaDownloadLauncherButton.Tag = asset?.BrowserDownloadUrl
+            ?? $"https://github.com/{GitHubOwner}/{GitHubRepo}/releases/tag/{BetaReleaseTag}";
+        BetaLauncherStatusText.Text = asset != null ? "Download bereit." : "Kein Launcher-Asset im Release.";
+    }
+
+    /// <summary>Öffentliche Version aus dem V1-Release. Ohne Account abrufbar.</summary>
+    private async Task LoadPublicReleaseAsync()
+    {
+        var release = await FetchReleaseByTagAsync(PublicReleaseTag);
+        if (release == null)
+        {
+            PublicVersionText.Text = "Version wird geladen...";
+            PublicStatusText.Text = "Öffentliche Version gerade nicht erreichbar.";
+            return;
+        }
+
+        string? version = ExtractVersion(release.Name, release.TagName);
+        PublicVersionText.Text = version != null ? "Version " + version : "Version unbekannt";
+
+        var asset = FindLauncherAsset(release);
+        PublicStatusText.Text = asset != null
+            ? "Ohne Account nutzbar."
+            : "Im Release liegt noch keine Datei. Der Download führt zur Release-Seite.";
+        PublicDownloadButton.Tag = asset?.BrowserDownloadUrl
+            ?? $"https://github.com/{GitHubOwner}/{GitHubRepo}/releases/tag/{PublicReleaseTag}";
+    }
+
     private async Task CheckForUpdatesAsync()
     {
+        if (!HasBetaPanelAccess)
+        {
+            StatusText.Text = "Kein Beta-Zugriff.";
+            return;
+        }
+
         try
         {
             StatusText.Text = "Suche nach Updates...";
@@ -818,6 +980,15 @@ public partial class MainWindow : Window
 
     private async Task DownloadAndInstallLatestAsync()
     {
+        if (!HasBetaPanelAccess)
+        {
+            StatusText.Text = "Kein Beta-Zugriff.";
+            MessageBox.Show(
+                "Das Spiel kann nur mit Beta-Zugriff heruntergeladen werden.",
+                "Kein Beta-Zugriff", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         try
         {
             UpdateButton.IsEnabled = false;
@@ -923,11 +1094,10 @@ public partial class MainWindow : Window
                     LoggedInDisplayName = result.DisplayName ?? LoggedInUsername;
                     HasBetaAccess = result.HasBetaAccess;
 
-                    NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
-                    UpdateHomeInformation();
-                    UpdateAccountUIVisibility();
-                    PrefillDisplayNameBox();
-                    WriteGameIdentity();
+                UpdateNavVisibility();
+                UpdateHomeInformation();
+                UpdateAccountUIVisibility();
+                PrefillDisplayNameBox();                    WriteGameIdentity();
                     StartStatusCheck();
                 }
                 else
@@ -985,7 +1155,7 @@ public partial class MainWindow : Window
                 AccountPasswordVisibleTextBox.Clear();
                 _rawPassword = string.Empty;
 
-                NavAdminButton.Visibility = LoggedInRole == "admin" ? Visibility.Visible : Visibility.Collapsed;
+                UpdateNavVisibility();
                 UpdateHomeInformation();
                 UpdateAccountUIVisibility();
                 PrefillDisplayNameBox();
@@ -1232,79 +1402,6 @@ public partial class MainWindow : Window
         return client;
     }
 
-    private async Task LoadAdminReportsAsync()
-    {
-        try
-        {
-            using HttpClient client = CreateAdminClient();
-            var response = await client.GetAsync($"{AccountServerUrl}/api/admin/reports");
-
-            if (!response.IsSuccessStatusCode)
-            {
-                AdminReportCountText.Text = "nicht verfügbar";
-                AdminActionStatus.Text = $"Server-Fehler beim Laden der Reports: {(int)response.StatusCode} {response.ReasonPhrase}";
-                return;
-            }
-
-            var result = await response.Content.ReadFromJsonAsync<AdminReportListResponse>();
-            if (result != null && result.Success)
-            {
-                ReportsItemsControl.ItemsSource = result.Reports;
-                AdminReportCountText.Text = $"{result.Open} offen";
-                AdminReportsEmptyText.Visibility = result.Reports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            }
-        }
-        catch (Exception ex)
-        {
-            AdminReportCountText.Text = "Fehler";
-            AdminActionStatus.Text = "Fehler: " + ex.Message;
-        }
-    }
-
-    private async void AdminRefreshReports_Click(object sender, RoutedEventArgs e)
-    {
-        await LoadAdminReportsAsync();
-    }
-
-    private async void AdminReportLock_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is not ReportItem report) return;
-
-        if (string.IsNullOrWhiteSpace(report.TargetUsername))
-        {
-            AdminActionStatus.Text = $"Kein Konto zu '{report.TargetName}' gefunden - Sperre nicht möglich.";
-            return;
-        }
-
-        using HttpClient client = CreateAdminClient();
-        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/set-lock", new
-        {
-            username = report.TargetUsername,
-            locked = true
-        });
-
-        AdminActionStatus.Text = result.IsSuccessStatusCode
-            ? $"Konto von {report.TargetName} wurde gesperrt."
-            : "Sperren fehlgeschlagen.";
-
-        await LoadAdminReportsAsync();
-        await LoadAdminUserListAsync();
-    }
-
-    private async void AdminReportResolve_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is not ReportItem report) return;
-
-        using HttpClient client = CreateAdminClient();
-        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/reports/resolve", new { id = report.Id });
-
-        AdminActionStatus.Text = result.IsSuccessStatusCode
-            ? "Report als erledigt markiert."
-            : "Report konnte nicht aktualisiert werden.";
-
-        await LoadAdminReportsAsync();
-    }
-
     private PerformanceCounterWrapper? PerformanceCounter;
 
     private void StartPerformanceMonitor()
@@ -1350,6 +1447,9 @@ public partial class MainWindow : Window
     {
         [JsonPropertyName("tag_name")]
         public string? TagName { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
 
         [JsonPropertyName("body")]
         public string? Body { get; set; }
@@ -1409,18 +1509,6 @@ public partial class MainWindow : Window
         public List<UserItem> Users { get; set; } = new();
     }
 
-    private sealed class AdminReportListResponse
-    {
-        [JsonPropertyName("success")]
-        public bool Success { get; set; }
-
-        [JsonPropertyName("open")]
-        public int Open { get; set; }
-
-        [JsonPropertyName("reports")]
-        public List<ReportItem> Reports { get; set; } = new();
-    }
-
     public sealed class UserItem
     {
         [JsonPropertyName("username")]
@@ -1469,45 +1557,6 @@ public partial class MainWindow : Window
 
         [JsonPropertyName("issuedAt")]
         public string IssuedAt { get; set; } = string.Empty;
-    }
-
-    public sealed class ReportItem
-    {        [JsonPropertyName("id")]
-        public string? Id { get; set; }
-
-        [JsonPropertyName("reporterName")]
-        public string? ReporterName { get; set; }
-
-        [JsonPropertyName("targetName")]
-        public string? TargetName { get; set; }
-
-        [JsonPropertyName("targetUsername")]
-        public string? TargetUsername { get; set; }
-
-        [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
-
-        [JsonPropertyName("createdAt")]
-        public string? CreatedAt { get; set; }
-
-        [JsonPropertyName("status")]
-        public string? Status { get; set; }
-
-        [JsonPropertyName("resolvedBy")]
-        public string? ResolvedBy { get; set; }
-
-        public bool IsOpen => !string.Equals(Status, "resolved", StringComparison.OrdinalIgnoreCase);
-
-        public string StatusText => IsOpen ? "OFFEN" : "ERLEDIGT";
-        public string StatusColor => IsOpen ? "#FB7185" : "#34D399";
-
-        public string Target => string.IsNullOrWhiteSpace(TargetUsername)
-            ? (TargetName ?? "?")
-            : TargetName + "  (" + TargetUsername + ")";
-
-        public string TimeText => DateTime.TryParse(CreatedAt, out DateTime parsed)
-            ? parsed.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-            : "-";
     }
 
     public sealed class PerformanceCounterWrapper

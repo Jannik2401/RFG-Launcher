@@ -227,17 +227,17 @@
                             </Grid>
                         </Button>
 
-                        <Button x:Name="NavUpdatesButton" AutomationProperties.Name="Updates" Style="{StaticResource NavButton}" Click="UpdatesButton_Click" Margin="0,0,0,4">
+                        <Button x:Name="NavBetaButton" AutomationProperties.Name="Beta" Style="{StaticResource NavButton}" Click="BetaButton_Click" Margin="0,0,0,4" Visibility="Collapsed">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border x:Name="NavUpdatesIndicator" Grid.Column="0" Width="3" Height="20" CornerRadius="2"
+                                <Border x:Name="NavBetaIndicator" Grid.Column="0" Width="3" Height="20" CornerRadius="2"
                                         Background="{StaticResource AccentGradient}" Opacity="0" Margin="0,0,13,0" VerticalAlignment="Center" />
-                                <Path Grid.Column="1" Style="{StaticResource NavIcon}" Data="M8,2.2 L8,10.2 M4.7,7.1 L8,10.5 L11.3,7.1 M2.6,11.6 L2.6,14 L13.4,14 L13.4,11.6" />
-                                <TextBlock Grid.Column="2" Text="Updates" Style="{StaticResource NavLabel}" Margin="12,0,0,0" />
+                                <Path Grid.Column="1" Style="{StaticResource NavIcon}" Data="M2.6,7.1 L8,10.5 L13.4,7.1 M2.6,11.6 L2.6,14 L13.4,14 L13.4,11.6 M2.6,7.1 L2.6,3.9 L13.4,3.9 L13.4,7.1" />
+                                <TextBlock Grid.Column="2" Text="Beta" Style="{StaticResource NavLabel}" Margin="12,0,0,0" />
                             </Grid>
                         </Button>
 
@@ -485,20 +485,35 @@
                             <TextBlock Text="Der Start ist nur möglich, wenn das Spiel installiert ist und dein Account über Beta-Zugriff verfügt."
                                        Style="{StaticResource Text.Caption}" HorizontalAlignment="Center" TextAlignment="Center"
                                        TextWrapping="Wrap" Margin="24,14,24,0" />
+
+                            <Border Style="{StaticResource Card.Sunken}" Padding="16" Margin="0,26,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="ÖFFENTLICHE VERSION" Style="{StaticResource Text.FieldLabel}" />
+                                    <TextBlock x:Name="PublicVersionText" Text="wird geladen..." Style="{StaticResource Text.H2}" Margin="0,10,0,0" />
+                                    <TextBlock x:Name="PublicStatusText" Text="" Style="{StaticResource Text.Caption}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                    <Button x:Name="PublicDownloadButton" Content="Öffentliche Version herunterladen"
+                                            Style="{StaticResource RowActionButton}" Click="DownloadRelease_Click"
+                                            Tag="https://github.com/Jannik2401/RFG-Launcher/releases/tag/V1"
+                                            HorizontalAlignment="Left" Margin="0,12,0,0" />
+                                    <TextBlock Style="{StaticResource Text.Caption}" Margin="0,12,0,0" TextWrapping="Wrap"
+                                               Text="Die öffentliche Version ist ohne Account nutzbar. Das Spiel selbst ist Teil des Beta-Panels und erfordert einen Account mit Beta-Zugriff." />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Grid>
 
-                    <!-- ============ UPDATES ============ -->
-                    <Grid x:Name="UpdatesPage" Visibility="Collapsed">
+                    <!-- ============ BETA ============ -->
+                    <Grid x:Name="BetaPage" Visibility="Collapsed">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-                            <TextBlock Text="Updates &amp; News" Style="{StaticResource Text.H1}" />
-                            <TextBlock Text="Release herunterladen und den Spielstand aktuell halten."
+                            <TextBlock Text="Beta Panel" Style="{StaticResource Text.H1}" />
+                            <TextBlock Text="Exklusiver Zugriff auf die Beta-Version des Launchers und des Spiels."
                                        Style="{StaticResource Text.Body}" Margin="0,6,0,0" />
                         </StackPanel>
 
@@ -509,7 +524,40 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Row="2" Style="{StaticResource Card}">
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14" Margin="0,0,0,16">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0">
+                                    <TextBlock x:Name="BetaLauncherVersionText" Text="Beta-Launcher: wird geladen..." Style="{StaticResource Text.H2}" />
+                                    <TextBlock Text="RELEASE NOTES" Style="{StaticResource Text.StatLabel}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <Separator Grid.Row="1" Style="{StaticResource ModernSeparator}" Margin="0,14" />
+
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Button x:Name="BetaDownloadLauncherButton" Content="Beta-Launcher herunterladen"
+                                            Style="{StaticResource RowActionButton}" Click="DownloadRelease_Click"
+                                            Tag="https://github.com/Jannik2401/RFG-Launcher/releases/tag/latest" />
+                                    <Button x:Name="BetaRefreshButton" Content="Neu laden" Style="{StaticResource RowActionButton}"
+                                            Click="BetaRefreshButton_Click" Margin="8,0,0,0" />
+                                    <TextBlock x:Name="BetaLauncherStatusText" Text="" FontSize="11.5" Margin="12,0,0,0"
+                                               VerticalAlignment="Center" TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,4,0">
+                                    <TextBlock x:Name="BetaReleaseNotesText" Text="Keine Release-Notes vorhanden."
+                                               Style="{StaticResource Text.Body}" TextWrapping="Wrap" LineHeight="20" />
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="3" Style="{StaticResource Card}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -521,7 +569,7 @@
 
                                 <Grid Grid.Row="0">
                                     <TextBlock x:Name="VersionText" Text="Installiert: -" Style="{StaticResource Text.H2}" />
-                                    <TextBlock Text="RELEASE NOTES" Style="{StaticResource Text.StatLabel}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Text="SPIEL-VERSION" Style="{StaticResource Text.StatLabel}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
 
                                 <Separator Grid.Row="1" Style="{StaticResource ModernSeparator}" Margin="0,14" />
@@ -656,7 +704,6 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -694,80 +741,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14" Margin="0,0,0,16" MaxHeight="268">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-
-                                <Grid Grid.Row="0" Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="SPIELER-REPORTS" Style="{StaticResource Text.FieldLabel}" />
-                                        <TextBlock x:Name="AdminReportCountText" Text="0 offen" Margin="12,0,0,0"
-                                                   FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Accent}"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
-
-                                    <Button Grid.Column="1" Content="Aktualisieren" Style="{StaticResource RowActionButton}"
-                                            Click="AdminRefreshReports_Click" />
-                                </Grid>
-
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel>
-                                        <TextBlock x:Name="AdminReportsEmptyText" Text="Keine Meldungen vorhanden." Visibility="Collapsed"
-                                                   FontSize="12" Foreground="{StaticResource TextMuted}" Margin="0,4,0,6" />
-                                        <ItemsControl x:Name="ReportsItemsControl">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Style="{StaticResource Card.Sunken}" Padding="12" Margin="0,0,0,8">
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="200" />
-                                                                <ColumnDefinition Width="12" />
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="12" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-
-                                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Target}" FontWeight="SemiBold" FontSize="13"
-                                                                           Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock FontSize="11" Margin="0,3,0,0" Foreground="{StaticResource TextMuted}">
-                                                                    <Run Text="gemeldet von " /><Run Text="{Binding ReporterName, Mode=OneWay}" />
-                                                                </TextBlock>
-                                                                <TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold" Margin="0,3,0,0"
-                                                                           Foreground="{Binding StatusColor}" />
-                                                            </StackPanel>
-
-                                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Reason}" FontSize="12" Foreground="{StaticResource TextSecondary}"
-                                                                           TextWrapping="Wrap" MaxHeight="42" />
-                                                                <TextBlock Text="{Binding TimeText}" FontSize="10.5" Margin="0,4,0,0"
-                                                                           Foreground="{StaticResource TextMuted}" />
-                                                            </StackPanel>
-
-                                                            <WrapPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                                <Button Content="Acc sperren" Style="{StaticResource RowActionButton}" Click="AdminReportLock_Click"
-                                                                        Margin="0,0,6,0" Background="{StaticResource WarningSurface}" Foreground="#FFFFFF" />
-                                                                <Button Content="Erledigt" Style="{StaticResource RowActionButton}" Click="AdminReportResolve_Click" />
-                                                            </WrapPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
-
-                        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="14">
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl x:Name="UsersItemsControl">
                                     <ItemsControl.ItemTemplate>

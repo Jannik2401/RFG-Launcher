@@ -73,19 +73,43 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $tagName = "latest"
           $releaseName = "RFGlauncher (Version 1.0.${{ github.run_number }})"
           $notes = "Automatisches Update für den Launcher (Version 1.0.${{ github.run_number }})."
           $exePath = "./publish/RFGlauncher.exe"
 
-          gh release delete "$tagName" --repo "${{ github.repository }}" --yes --cleanup-tag 2>&1 | Out-Null
-          git push origin --delete "$tagName" 2>&1 | Out-Null
+          if (-not (Test-Path $exePath)) {
+              throw "Build-Artefakt fehlt: $exePath"
+          }
 
-          gh release create "$tagName" "$exePath" --repo "${{ github.repository }}" --title "$releaseName" --notes "$notes"
+          # Das Release wird NICHT vorher geloescht. Dadurch bleibt die
+          # Download-URL waehrend des Builds erreichbar und ein Fehler
+          # erzeugt keine tote Version mehr.
+          gh release view "$tagName" --repo "${{ github.repository }}" --json tagName *> $null
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "Release '$tagName' existiert - Asset wird ersetzt."
+              gh release edit "$tagName" --repo "${{ github.repository }}" --title "$releaseName" --notes "$notes"
+              gh release upload "$tagName" $exePath --repo "${{ github.repository }}" --clobber
+          }
+          else {
+              Write-Host "Release '$tagName' existiert nicht - wird neu erstellt."
+              gh release create "$tagName" $exePath --repo "${{ github.repository }}" --title "$releaseName" --notes "$notes" --target "${{ github.sha }}"
+          }
+
+          # Gegenprobe: Das Asset muss wirklich am Release haengen.
+          $assets = gh release view "$tagName" --repo "${{ github.repository }}" --json assets | ConvertFrom-Json
+          $hasExe = @($assets.assets | Where-Object { $_.name -eq "RFGlauncher.exe" }).Count -gt 0
+          if (-not $hasExe) {
+              throw "RFGlauncher.exe fehlt im Release - version.json wird NICHT hochgezaehlt."
+          }
+
+          Write-Host "OK: RFGlauncher.exe liegt im Release '$tagName'."
 
       - name: version.json automatisch aktualisieren & pushen
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $ver = "1.0.${{ github.run_number }}"
           $json = @{
               version = "$ver"
