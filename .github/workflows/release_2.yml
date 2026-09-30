@@ -7,6 +7,11 @@ on:
       - main
     paths-ignore:
       - 'version.json'
+      # Reine Website-Aenderungen sollen keinen 150-MB-Release ausloesen.
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+      - 'tools/**'
+      - '**/*.md'
 
 jobs:
   build:

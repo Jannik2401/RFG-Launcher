@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jannik2401.github.io/RFG-Launcher/sitemap.xml
