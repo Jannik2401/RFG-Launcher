@@ -10,7 +10,3 @@ users.json
 news.json
 game_info.json
 reports.json
-
-# Vom media-sync.ps1 erzeugte Zwischenstände (Vorschauen/Poster werden
-# mit committed, damit die Galerie ohne ffmpeg auskommt)
-site/media/tmp-*
