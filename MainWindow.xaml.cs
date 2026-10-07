@@ -1232,78 +1232,7 @@ public partial class MainWindow : Window
         return client;
     }
 
-    private async Task LoadAdminReportsAsync()
-    {
-        try
-        {
-            using HttpClient client = CreateAdminClient();
-            var response = await client.GetAsync($"{AccountServerUrl}/api/admin/reports");
 
-            if (!response.IsSuccessStatusCode)
-            {
-                AdminReportCountText.Text = "nicht verfügbar";
-                AdminActionStatus.Text = $"Server-Fehler beim Laden der Reports: {(int)response.StatusCode} {response.ReasonPhrase}";
-                return;
-            }
-
-            var result = await response.Content.ReadFromJsonAsync<AdminReportListResponse>();
-            if (result != null && result.Success)
-            {
-                ReportsItemsControl.ItemsSource = result.Reports;
-                AdminReportCountText.Text = $"{result.Open} offen";
-                AdminReportsEmptyText.Visibility = result.Reports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            }
-        }
-        catch (Exception ex)
-        {
-            AdminReportCountText.Text = "Fehler";
-            AdminActionStatus.Text = "Fehler: " + ex.Message;
-        }
-    }
-
-    private async void AdminRefreshReports_Click(object sender, RoutedEventArgs e)
-    {
-        await LoadAdminReportsAsync();
-    }
-
-    private async void AdminReportLock_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is not ReportItem report) return;
-
-        if (string.IsNullOrWhiteSpace(report.TargetUsername))
-        {
-            AdminActionStatus.Text = $"Kein Konto zu '{report.TargetName}' gefunden - Sperre nicht möglich.";
-            return;
-        }
-
-        using HttpClient client = CreateAdminClient();
-        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/set-lock", new
-        {
-            username = report.TargetUsername,
-            locked = true
-        });
-
-        AdminActionStatus.Text = result.IsSuccessStatusCode
-            ? $"Konto von {report.TargetName} wurde gesperrt."
-            : "Sperren fehlgeschlagen.";
-
-        await LoadAdminReportsAsync();
-        await LoadAdminUserListAsync();
-    }
-
-    private async void AdminReportResolve_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as Button)?.DataContext is not ReportItem report) return;
-
-        using HttpClient client = CreateAdminClient();
-        var result = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/reports/resolve", new { id = report.Id });
-
-        AdminActionStatus.Text = result.IsSuccessStatusCode
-            ? "Report als erledigt markiert."
-            : "Report konnte nicht aktualisiert werden.";
-
-        await LoadAdminReportsAsync();
-    }
 
     private PerformanceCounterWrapper? PerformanceCounter;
 
@@ -1409,17 +1338,7 @@ public partial class MainWindow : Window
         public List<UserItem> Users { get; set; } = new();
     }
 
-    private sealed class AdminReportListResponse
-    {
-        [JsonPropertyName("success")]
-        public bool Success { get; set; }
 
-        [JsonPropertyName("open")]
-        public int Open { get; set; }
-
-        [JsonPropertyName("reports")]
-        public List<ReportItem> Reports { get; set; } = new();
-    }
 
     public sealed class UserItem
     {
@@ -1471,44 +1390,6 @@ public partial class MainWindow : Window
         public string IssuedAt { get; set; } = string.Empty;
     }
 
-    public sealed class ReportItem
-    {        [JsonPropertyName("id")]
-        public string? Id { get; set; }
-
-        [JsonPropertyName("reporterName")]
-        public string? ReporterName { get; set; }
-
-        [JsonPropertyName("targetName")]
-        public string? TargetName { get; set; }
-
-        [JsonPropertyName("targetUsername")]
-        public string? TargetUsername { get; set; }
-
-        [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
-
-        [JsonPropertyName("createdAt")]
-        public string? CreatedAt { get; set; }
-
-        [JsonPropertyName("status")]
-        public string? Status { get; set; }
-
-        [JsonPropertyName("resolvedBy")]
-        public string? ResolvedBy { get; set; }
-
-        public bool IsOpen => !string.Equals(Status, "resolved", StringComparison.OrdinalIgnoreCase);
-
-        public string StatusText => IsOpen ? "OFFEN" : "ERLEDIGT";
-        public string StatusColor => IsOpen ? "#FB7185" : "#34D399";
-
-        public string Target => string.IsNullOrWhiteSpace(TargetUsername)
-            ? (TargetName ?? "?")
-            : TargetName + "  (" + TargetUsername + ")";
-
-        public string TimeText => DateTime.TryParse(CreatedAt, out DateTime parsed)
-            ? parsed.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-            : "-";
-    }
 
     public sealed class PerformanceCounterWrapper
     {
