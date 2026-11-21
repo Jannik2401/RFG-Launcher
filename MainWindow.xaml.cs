@@ -616,10 +616,10 @@ public partial class MainWindow : Window
     }
 
     private void HomeButton_Click(object sender, RoutedEventArgs e) => ShowPage(HomePage);
-    private void UpdatesButton_Click(object sender, RoutedEventArgs e) => ShowPage(UpdatesPage);
+    private void UpdatesButton_Click(object sender, RoutedEventArgs e) { ShowPage(UpdatesPage); _ = LoadAnnouncementsAsync(); }
     private void AccountButton_Click(object sender, RoutedEventArgs e) => ShowPage(AccountPage);
     private void SettingsButton_Click(object sender, RoutedEventArgs e) => ShowPage(SettingsPage);
-    private void AdminButton_Click(object sender, RoutedEventArgs e) { ShowPage(AdminPage); _ = LoadAdminUserListAsync(); }
+    private void AdminButton_Click(object sender, RoutedEventArgs e) { ShowPage(AdminPage); _ = LoadAdminUserListAsync(); _ = LoadAnnouncementsAsync(); }
     private void PerformanceButton_Click(object sender, RoutedEventArgs e) => ShowPage(PerformancePage);
     private void CreditsButton_Click(object sender, RoutedEventArgs e) => ShowPage(CreditsPage);
     private void ExitButton_Click(object sender, RoutedEventArgs e) => Close();
@@ -814,6 +814,21 @@ public partial class MainWindow : Window
             ReleaseNotesText.Text = release.Body ?? "Keine Notes.";
         }
         catch { StatusText.Text = "Fehler bei Update-Prüfung."; }
+    }
+
+    private async Task LoadAnnouncementsAsync()
+    {
+        try
+        {
+            var announcements = await Http.GetFromJsonAsync<List<Announcement>>($"{AccountServerUrl}/api/news/all");
+            AnnouncementsText.Text = announcements == null || announcements.Count == 0
+                ? "Keine Ankündigungen vorhanden."
+                : string.Join("\n\n", announcements.Select(item => $"{item.Title} · {item.Date}\n{item.Content}"));
+        }
+        catch
+        {
+            AnnouncementsText.Text = "Ankündigungen konnten nicht geladen werden.";
+        }
     }
 
     private async Task DownloadAndInstallLatestAsync()
@@ -1114,6 +1129,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void AdminPublishAnnouncement_Click(object sender, RoutedEventArgs e)
+    {
+        string title = AdminAnnouncementTitleBox.Text.Trim();
+        string content = AdminAnnouncementContentBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
+        {
+            AdminActionStatus.Text = "Bitte Titel und Inhalt der Ankündigung eingeben.";
+            return;
+        }
+
+        try
+        {
+            using HttpClient client = CreateAdminClient();
+            var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/publish-news", new { title, content });
+            var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
+            AdminActionStatus.Text = result?.Message ?? "Ankündigung konnte nicht veröffentlicht werden.";
+            if (response.IsSuccessStatusCode && result?.Success == true)
+            {
+                AdminAnnouncementTitleBox.Clear();
+                AdminAnnouncementContentBox.Clear();
+                await LoadAnnouncementsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            AdminActionStatus.Text = "Ankündigung fehlgeschlagen: " + ex.Message;
+        }
+    }
+
     private async void AdminCreateUser_Click(object sender, RoutedEventArgs e)
     {
         string username = AdminNewUsernameBox.Text.Trim();
@@ -1327,6 +1371,18 @@ public partial class MainWindow : Window
 
         [JsonPropertyName("isLocked")]
         public bool IsLocked { get; set; }
+    }
+
+    private sealed class Announcement
+    {
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [JsonPropertyName("content")]
+        public string Content { get; set; } = string.Empty;
+
+        [JsonPropertyName("date")]
+        public string Date { get; set; } = string.Empty;
     }
 
     private sealed class AdminUserListResponse

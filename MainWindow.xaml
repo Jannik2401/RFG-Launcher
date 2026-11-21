@@ -527,8 +527,13 @@
                                 <Separator Grid.Row="1" Style="{StaticResource ModernSeparator}" Margin="0,14" />
 
                                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,4,0">
-                                    <TextBlock x:Name="ReleaseNotesText" Text="Keine Notes vorhanden."
-                                               Style="{StaticResource Text.Body}" TextWrapping="Wrap" LineHeight="20" />
+                                    <StackPanel>
+                                        <TextBlock x:Name="ReleaseNotesText" Text="Keine Notes vorhanden."
+                                                   Style="{StaticResource Text.Body}" TextWrapping="Wrap" LineHeight="20" />
+                                        <TextBlock Text="ANKÜNDIGUNGEN" Style="{StaticResource Text.StatLabel}" Margin="0,22,0,10" />
+                                        <TextBlock x:Name="AnnouncementsText" Text="Keine Ankündigungen vorhanden."
+                                                   Style="{StaticResource Text.Body}" TextWrapping="Wrap" LineHeight="20" />
+                                    </StackPanel>
                                 </ScrollViewer>
 
                                 <ProgressBar x:Name="Progress" Grid.Row="3" Style="{StaticResource ModernProgressBar}"
@@ -656,6 +661,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -693,7 +699,20 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14">
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="LIVE-ANKÜNDIGUNG VERÖFFENTLICHEN" Style="{StaticResource Text.FieldLabel}" />
+                                <TextBox x:Name="AdminAnnouncementTitleBox" Style="{StaticResource ModernTextBox}" Height="40"
+                                         FontSize="12.5" Margin="0,10,0,8" />
+                                <TextBox x:Name="AdminAnnouncementContentBox" Style="{StaticResource ModernTextBox}" MinHeight="75"
+                                         FontSize="12.5" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" />
+                                <Button Content="Ankündigung live veröffentlichen" Style="{StaticResource PrimaryButton}"
+                                        Click="AdminPublishAnnouncement_Click" Height="40" FontSize="12.5" Padding="18,0"
+                                        HorizontalAlignment="Right" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="14">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl x:Name="UsersItemsControl">
                                     <ItemsControl.ItemTemplate>
@@ -805,7 +824,7 @@
                                 <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18">
                                     <StackPanel>
                                         <TextBlock Text="3D MODELLIERER" Style="{StaticResource Text.StatLabel}" />
-                                        <TextBlock Text="Greentiger, Blaubeerteilchen, Felixgame21, TimmyPro"
+                                        <TextBlock Text="Greentiger, Blaubeerteilchen, Felixgame21"
                                                    Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,9,0,0" />
                                     </StackPanel>
                                 </Border>
@@ -813,7 +832,7 @@
                                 <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18">
                                     <StackPanel>
                                         <TextBlock Text="SCRIPTER" Style="{StaticResource Text.StatLabel}" />
-                                        <TextBlock Text="Crazyfunworld_Jannik, Blaubeerteilchen, Dennys"
+                                        <TextBlock Text="Crazyfunworld_Jannik, Blaubeerteilchen"
                                                    Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,9,0,0" />
                                     </StackPanel>
                                 </Border>
