@@ -820,7 +820,8 @@ public partial class MainWindow : Window
     {
         try
         {
-            var announcements = await Http.GetFromJsonAsync<List<Announcement>>($"{AccountServerUrl}/api/news/all");
+            using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(10) };
+            var announcements = await client.GetFromJsonAsync<List<Announcement>>($"{AccountServerUrl}/api/news/all");
             AnnouncementsText.Text = announcements == null || announcements.Count == 0
                 ? "Keine Ankündigungen vorhanden."
                 : string.Join("\n\n", announcements.Select(item => $"{item.Title} · {item.Date}\n{item.Content}"));
@@ -1131,6 +1132,8 @@ public partial class MainWindow : Window
 
     private async void AdminPublishAnnouncement_Click(object sender, RoutedEventArgs e)
     {
+        if (!AdminPublishAnnouncementButton.IsEnabled) return;
+
         string title = AdminAnnouncementTitleBox.Text.Trim();
         string content = AdminAnnouncementContentBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
@@ -1141,10 +1144,12 @@ public partial class MainWindow : Window
 
         try
         {
+            AdminPublishAnnouncementButton.IsEnabled = false;
+            AdminActionStatus.Text = "Ankündigung wird veröffentlicht …";
             using HttpClient client = CreateAdminClient();
             var response = await client.PostAsJsonAsync($"{AccountServerUrl}/api/admin/publish-news", new { title, content });
             var result = await response.Content.ReadFromJsonAsync<AccountResponse>();
-            AdminActionStatus.Text = result?.Message ?? "Ankündigung konnte nicht veröffentlicht werden.";
+            AdminActionStatus.Text = result?.Message ?? $"Server-Fehler: {(int)response.StatusCode} {response.ReasonPhrase}";
             if (response.IsSuccessStatusCode && result?.Success == true)
             {
                 AdminAnnouncementTitleBox.Clear();
@@ -1152,9 +1157,17 @@ public partial class MainWindow : Window
                 await LoadAnnouncementsAsync();
             }
         }
+        catch (TaskCanceledException)
+        {
+            AdminActionStatus.Text = "Der Server antwortet nicht rechtzeitig. Bitte Verbindung prüfen und erneut versuchen.";
+        }
         catch (Exception ex)
         {
             AdminActionStatus.Text = "Ankündigung fehlgeschlagen: " + ex.Message;
+        }
+        finally
+        {
+            AdminPublishAnnouncementButton.IsEnabled = true;
         }
     }
 
@@ -1270,7 +1283,7 @@ public partial class MainWindow : Window
 
     private HttpClient CreateAdminClient()
     {
-        HttpClient client = new();
+        HttpClient client = new() { Timeout = TimeSpan.FromSeconds(15) };
         if (!string.IsNullOrEmpty(LoggedInUsername)) client.DefaultRequestHeaders.Add("X-Admin-User", LoggedInUsername);
         if (!string.IsNullOrEmpty(LoggedInPassword)) client.DefaultRequestHeaders.Add("X-Admin-Pass", LoggedInPassword);
         return client;
